@@ -5,7 +5,7 @@ import { tryPurchaseNode, tryUpgradeNodes, allNodesUpgraded } from "node-lib.js"
 export const gameStateFile = "game-state-level.txt";
 var gameStateLevel;
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function main(ns) {
 	var loop = ns.args[0] ?? true;
 	await gameloop(ns);
@@ -15,7 +15,7 @@ export async function main(ns) {
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function getGameStateLevel(ns) {
 	var level = parseInt(await ns.read(gameStateFile));
 	if (level < 2 && ns.getPlayer().money >= 440000) {
@@ -58,7 +58,7 @@ export async function getGameStateLevel(ns) {
 	return level;
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function gameloop(ns) {
 	const previousLevel = gameStateLevel;
 	gameStateLevel = await getGameStateLevel(ns);

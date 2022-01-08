@@ -1,10 +1,10 @@
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function main(ns) {
 	var data = [[2], [3, 9], [1, 6, 7]];
 	var result = minSumPath(ns, data);
 }
 					
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export function minSumPath(ns, data)
 {
 	// For storing the result

@@ -2,9 +2,9 @@ import { findHackedServers } from "server-lib.js";
 import { sortFirstColumn } from "helper-lib.js";
 import { gameStateFile } from "smart-networking.js";
 
-export const scripts = ["weaken.js", "grow.js", "hack.js"];
+export const scripts = ["/scripts/weaken.js", "/scripts/grow.js", "/scripts/hack.js"];
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function main(ns) {
 	var loop = ns.args[0] ?? true;
 	var sortFunction = ns.args[1] ?? sortByWeakeningNeed;
@@ -15,7 +15,7 @@ export async function main(ns) {
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 async function distributeJobs(ns, sortFunction) {
 	sortFunction == sortFunction ?? sortByWeakeningNeed;
 	if (parseInt(await ns.read(gameStateFile)) > 2) sortFunction = sortByServerHackPotential;
@@ -42,14 +42,14 @@ async function distributeJobs(ns, sortFunction) {
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 async function copyScripts(ns, availableExecutors) {
 	for (var executor of availableExecutors) {
 		await ns.scp(scripts, "home", executor);
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 function startJobs(ns, availableExecutors, jobsOfType, scriptname, sortedServer) {
 	var targetName = sortedServer[1];
 	var ramPerThread = ns.getScriptRam(scriptname);
@@ -103,7 +103,7 @@ function startJobs(ns, availableExecutors, jobsOfType, scriptname, sortedServer)
 	}
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @returns {[number, string]} [serverGrowth, hostname] **/
 function sortByServerHackPotential(ns, hackedServers) {
 	var serverGrowths = [];
@@ -121,7 +121,7 @@ function sortByServerHackPotential(ns, hackedServers) {
 	return serverGrowths;
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @returns {[number, string]} [serverGrowth, hostname] **/
 function sortByWeakeningNeed(ns, hackedServers) {
 	var weakeningNeeded = [];
@@ -139,7 +139,7 @@ function sortByWeakeningNeed(ns, hackedServers) {
 	return weakeningNeeded;
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @param {[number, string]} sortedServers
  * @param {number} cores
  * @returns {[[string, number][],[string, number][],[string, number][]]} [weaken, grow, hack] **/

@@ -3,7 +3,7 @@ export function main(ns) {
  	algorithmicStockTraderIII(ns, data);
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @param {number[]} data
  * Algorithmic Stock Trader II
  * var data = [102, 23, 105, 13, 130, 199, 139, 56, 100];
@@ -39,7 +39,7 @@ export function algorithmicStockTraderII(ns, data) {
 	return earned;
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @param {number[]} data
  * Algorithmic Stock Trader III
  * var data = [102, 23, 105, 13, 130, 199, 139, 56, 100];

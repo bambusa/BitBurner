@@ -1,7 +1,7 @@
 import { findHackableServers, findHackedServers } from "server-lib.js";
 import { tryRootServer, scripts } from "hack-lib.js";
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function calculateMaxThreads(ns, hostname, scriptname) {
     let threads = 0;
     let memoryNeeded = 0;
@@ -18,7 +18,7 @@ export async function calculateMaxThreads(ns, hostname, scriptname) {
     return threads;
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function exploreAndRootServers(ns, home, origin) {
     let hostnames = await findHackableServers(ns, home, origin);
     if (hostnames.length > 0) {
@@ -32,7 +32,7 @@ export async function exploreAndRootServers(ns, home, origin) {
     }
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 async function exploreAndDeployServers(ns, scriptname, home, origin, target) {
     let hostnames = await findHackableServers(ns, home, origin);
     if (hostnames.length > 0) {
@@ -47,7 +47,7 @@ async function exploreAndDeployServers(ns, scriptname, home, origin, target) {
     }
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 async function deployScriptTo(ns, scriptname, hostname, target) {
     if (ns.scriptRunning(scriptname, hostname)) {
         //ns.tprintf("-- %s is running already on %s", scriptname, hostname);
@@ -77,37 +77,7 @@ async function deployScriptTo(ns, scriptname, hostname, target) {
     }
 }
 
-/** @param {NS} ns **/
-export async function deployHackingScript(ns, scriptname, hostname, deployPurchased, deployHacked, target) {
-    if (scriptname == undefined) {
-        scriptname = "hack-template.ns";
-    }
-
-    if (hostname != undefined) {
-        await deployScriptTo(ns, scriptname, hostname, target);
-    }
-
-    else {
-        // purchased servers
-        if (deployPurchased == true || (deployPurchased == undefined && await ns.prompt('Deploy "' + scriptname + '" and override scripts on all purchased servers?'))) {
-            ns.print("Deploying to purchased servers...");
-            let hostnames = ns.getPurchasedServers();
-
-            for (let i = 0; i < hostnames.length; i++) {
-                let iHostname = hostnames[i];
-                await deployScriptTo(ns, scriptname, iHostname, target);
-            }
-        }
-
-        // hacked servers
-        if (deployHacked == true || (deployHacked == undefined && await ns.prompt('Deploy "' + scriptname + '" and override scripts on all hacked servers?'))) {
-            ns.print("Exploring and hacking reachable servers...");
-            await exploreAndDeployServers(ns, scriptname, "home", undefined, target);
-        }
-    }
-}
-
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function deployScriptsToAllServers(ns) {
     var hackedServers = await findHackedServers(ns, "home", "home");
     var hostnames = ns.getPurchasedServers().concat(hackedServers);
@@ -116,7 +86,7 @@ export async function deployScriptsToAllServers(ns) {
     }
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function stopAllScripts(ns) {
     var hostnames = ns.getPurchasedServers();
     hostnames = hostnames.concat(await findHackedServers(ns, "home"));
@@ -126,7 +96,7 @@ export async function stopAllScripts(ns) {
     ns.tprintf("Stopped all scripts on %u servers", hostnames.length);
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function deployScripts(ns, hostname) {
     if (!ns.fileExists(scripts[scripts.length - 1])) {
         await ns.scp(scripts, "home", hostname);
@@ -134,7 +104,7 @@ export async function deployScripts(ns, hostname) {
     }
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function main(ns) {
     await deployScriptsToAllServers(ns);
     ns.tprint("Deployed scripts to all servers");

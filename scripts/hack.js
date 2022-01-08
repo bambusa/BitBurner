@@ -1,4 +1,4 @@
-/** @param {NS} ns **/
+/** @param {import("..").NS} ns **/
 export async function main(ns) {
 	var target = ns.args[0];
 	var stole = await hackServer(ns, target);
@@ -10,7 +10,7 @@ export async function main(ns) {
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import("..").NS} ns **/
 async function hackServer(ns, target) {
 	return await ns.hack(target);
 }

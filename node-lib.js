@@ -1,4 +1,4 @@
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export function tryPurchaseNode(ns, maxNumNodes) {
     if (maxNumNodes == undefined) {
         maxNumNodes = 10;
@@ -18,7 +18,7 @@ export function tryPurchaseNode(ns, maxNumNodes) {
     }
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export function tryUpgradeNodes(ns, level) {
     if (level == undefined) {
         level = 10;
@@ -45,7 +45,7 @@ export function tryUpgradeNodes(ns, level) {
     }
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export function allNodesUpgraded(ns, numNodes, level) {
     if (level == undefined) {
         level = 10;

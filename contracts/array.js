@@ -1,4 +1,4 @@
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function main(ns) {
 	var data = [0,9,0,0,2,0,9,4,5,1,0,2,8];
 	arrayJumpingGame(ns, data);
@@ -6,7 +6,7 @@ export async function main(ns) {
 
 var arrayJumpingGameAnswer = false;
 
-/** @param {NS} ns 
+/** @param {import(".").NS} ns 
  * @param {number[]} data
  * Array Jumping Game **/
 export function arrayJumpingGame(ns, data) {

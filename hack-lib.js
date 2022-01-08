@@ -1,7 +1,7 @@
 export const portBusters = ['BruteSSH.exe', 'FTPCrack.exe', 'relaySMTP.exe', 'HTTPWorm.exe', 'SQLInject.exe'];
 export const scripts = ["weaken.js", "grow.js", "hack.js"];
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function getNumberOfOwnedPortBusters(ns) {
     var ownedBusters = 0;
     for (var i = 0; i < portBusters.length; i++) {
@@ -13,7 +13,7 @@ export async function getNumberOfOwnedPortBusters(ns) {
     return ownedBusters;
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function tryRootServer(ns, hostname) {
     var server = ns.getServer(hostname);
     if (server.hasAdminRights) {
@@ -74,7 +74,7 @@ export async function tryRootServer(ns, hostname) {
     return false;
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 async function deployScripts(ns, hostname) {
     if (!ns.fileExists(scripts[scripts.length - 1])) {
         await ns.scp(scripts, "home", hostname);

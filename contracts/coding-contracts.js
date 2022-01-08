@@ -1,4 +1,4 @@
-import { findHackableServers } from "server-lib.ns";
+import { findHackableServers } from "server-lib.js";
 import { algorithmicStockTraderII, algorithmicStockTraderIII } from "/contracts/algorithmic-stock-trader.js";
 import { arrayJumpingGame } from "/contracts/array.js";
 import { sanitizeParantheses } from "/contracts/parantheses";
@@ -9,7 +9,7 @@ export var doneContractsFile = "/contracts/done-contracts.txt";
 var contractTypes = ["Algorithmic Stock Trader I", "Algorithmic Stock Trader II", "Algorithmic Stock Trader III", "Array Jumping Game", "Sanitize Parentheses in Expression", "Minimum Path Sum in a Triangle"];
 var contractFunctions = [undefined, algorithmicStockTraderII, algorithmicStockTraderIII, arrayJumpingGame, sanitizeParantheses, minSumPath];
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function main(ns) {
 	var mode = ns.args[0];
 	if (mode == undefined) {
@@ -23,7 +23,7 @@ export async function main(ns) {
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function readContracts(ns, index) {
 	var file = "" + await ns.read(foundContractsFile);
 	var split = file.split("; ");
@@ -57,7 +57,7 @@ export async function readContracts(ns, index) {
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function attemptContract(ns, index) {
 	var file = "" + await ns.read(foundContractsFile);
 	var split = file.split("; ");
@@ -108,7 +108,7 @@ export async function attemptContract(ns, index) {
 	}
 }
 
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function findContracts(ns, home, origin) {
 	var hostnames = await findHackableServers(ns, home, origin);
 	for (var hostname of hostnames) {

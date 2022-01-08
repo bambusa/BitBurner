@@ -1,4 +1,4 @@
-/** @param {NS} ns **/
+/** @param {import(".").NS} ns **/
 export async function main(ns) {
 	var data = ")aa((a(a)((a(())()a)";
 	var result = sanitizeParantheses(ns, data);
@@ -43,7 +43,7 @@ export function sanitizeParantheses(ns, input) {
 	return `[${[...solutions].join(", ")}]`;
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @param {string} data
  * Sanitize Parentheses in Expression **/
 export function sanitizeParanthesesOld(ns, data) {
@@ -66,7 +66,7 @@ export function sanitizeParanthesesOld(ns, data) {
 	return [""];
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @param {string} data **/
 function removeParanthesis(ns, data, removeAmount, index, candidates) {
 	console.log("removeParanthesis " + data + " " + removeAmount + " " + index);
@@ -94,7 +94,7 @@ function removeParanthesis(ns, data, removeAmount, index, candidates) {
 	}
 }
 
-/** @param {NS} ns
+/** @param {import(".").NS} ns
  * @param {string} candidate **/
 function validateParanthesis(candidate) {
 	var state = 0;
