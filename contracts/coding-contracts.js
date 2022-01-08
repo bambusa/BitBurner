@@ -1,8 +1,8 @@
-import { findHackableServers } from "server-lib.js";
-import { algorithmicStockTraderII, algorithmicStockTraderIII } from "/contracts/algorithmic-stock-trader.js";
-import { arrayJumpingGame } from "/contracts/array.js";
-import { sanitizeParantheses } from "/contracts/parantheses";
-import { minSumPath } from "/contracts/triangle.js";
+import { findHackableServers } from "libs/server-lib.js";
+import { algorithmicStockTraderII, algorithmicStockTraderIII } from "contracts/algorithmic-stock-trader.js";
+import { arrayJumpingGame } from "contracts/array.js";
+import { sanitizeParantheses } from "contracts/parantheses";
+import { minSumPath } from "contracts/triangle.js";
 
 export var foundContractsFile = "/contracts/found-contracts.txt";
 export var doneContractsFile = "/contracts/done-contracts.txt";

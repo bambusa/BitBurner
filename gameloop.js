@@ -1,5 +1,5 @@
 import {gameStateFile} from "smart-networking.js";
-import {foundContractsFile, doneContractsFile} from "/contracts/coding-contracts.js";
+import {foundContractsFile, doneContractsFile} from "contracts/coding-contracts.js";
 
 /** @param {import(".").NS} ns */
 export async function main(ns) {

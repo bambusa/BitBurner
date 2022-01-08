@@ -1,4 +1,4 @@
-/** @param {import(".").NS} ns **/
+/** @param {import("..").NS} ns **/
 export function tryBuyPortBusters(ns) {
 	if (!ns.scan().includes("darkweb")) {
 		ns.tprintf("!!! Buy TOR router")

@@ -1,6 +1,6 @@
 const purchasedServerPrefix = "pserv";
 
-/** @param {import(".").NS} ns
+/** @param {import("..").NS} ns
  * @param {string} home
  * @param {string} origin
  * @returns {string[]} hostname array **/
@@ -16,7 +16,7 @@ export function findHackableServers(ns, home, origin) {
     return hackedServers;
 }
 
-/** @param {import(".").NS} ns
+/** @param {import("..").NS} ns
  * @param {string} home
  * @param {string} origin
  * @returns {string[]} hostname array **/
@@ -43,7 +43,7 @@ export function findHackedServers(ns, home, origin, hackedServers) {
     return hackedServers;
 }
 
-/** @param {import(".").NS} ns
+/** @param {import("..").NS} ns
  * @param {number} threads
  * @returns {string} hostname **/
 export function findServerWithBestHackingPotential(ns, threads) {
@@ -66,7 +66,7 @@ export function findServerWithBestHackingPotential(ns, threads) {
     return bestServer;
 }
 
-/** @param {import(".").NS} ns
+/** @param {import("..").NS} ns
  * @param {number} ram
  * @returns {string} hostname of bought server **/
 export function tryPurchaseServer(ns, ram) {
@@ -93,7 +93,7 @@ export function tryPurchaseServer(ns, ram) {
     }
 }
 
-/** @param {import(".").NS} ns
+/** @param {import("..").NS} ns
  * @param {number} ram
  * @returns {string} hostname of upgraded server **/
 export function tryReplaceServer(ns, ram) {
@@ -116,7 +116,7 @@ export function tryReplaceServer(ns, ram) {
     }
 }
 
-/** @param {import(".").NS} ns **/
+/** @param {import("..").NS} ns **/
 export function allServersUpgraded(ns, ram) {
     for (var i = 0; i < ns.getPurchasedServers().length; i++) {
         var hostname = ns.getPurchasedServers()[i];

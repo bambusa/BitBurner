@@ -1,6 +1,6 @@
-import { exploreAndRootServers } from "deploy-lib.js";
-import { tryPurchaseServer, tryReplaceServer, allServersUpgraded } from "server-lib.js";
-import { tryPurchaseNode, tryUpgradeNodes, allNodesUpgraded } from "node-lib.js";
+import { exploreAndRootServers } from "libs/deploy-lib.js";
+import { tryPurchaseServer, tryReplaceServer, allServersUpgraded } from "libs/server-lib.js";
+import { tryPurchaseNode, tryUpgradeNodes, allNodesUpgraded } from "libs/node-lib.js";
 
 export const gameStateFile = "game-state-level.txt";
 var gameStateLevel;
