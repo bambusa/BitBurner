@@ -2,7 +2,7 @@ import { findHackedServers } from "libs/server-lib.js";
 import { sortFirstColumn } from "libs/helper-lib.js";
 import { gameStateFile } from "smart-networking.js";
 
-export const scripts = ["/scripts/weaken.js", "/scripts/grow.js", "/scripts/hack.js"];
+export const scripts = ["weaken.js", "grow.js", "hack.js"];
 
 /** @param {import(".").NS} ns **/
 export async function main(ns) {
@@ -36,6 +36,7 @@ async function distributeJobs(ns, sortFunction) {
 
 	//console.log("distribute jobs for " + sortedServers);
 	for (var j = 0; j < sortedServers.length; j++) {
+		if (sortedServers[j] == "n00dles") continue;
 		for (var i = 0; i < scripts.length; i++) {
 			startJobs(ns, availableExecutors, jobs[i], scripts[i], sortedServers[j]);
 		}
@@ -74,7 +75,7 @@ function startJobs(ns, availableExecutors, jobsOfType, scriptname, sortedServer)
 			// assign threads
 			var ramAvailable = ns.getServerMaxRam(executor) - ns.getServerUsedRam(executor);
 			if (executor == "home") {
-				ramAvailable -= 30;
+				ramAvailable -= 50;
 			}
 
 			var threadsAvailable = Math.floor(ramAvailable / ramPerThread);
@@ -148,6 +149,7 @@ function analyzeNeededJobs(ns, sortedServers, cores) {
 
 	for (const sortedServer of sortedServers) {
 		var hostname = sortedServer[1];
+		if (hostname == "joesguns") continue;
 		var server = ns.getServer(hostname);
 
 		var needsWeakening = false;

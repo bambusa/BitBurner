@@ -59,9 +59,9 @@ export async function tryRootServer(ns, hostname) {
             else if (hostname == "run4theh111z") {
                 ns.alert("Gained root access to run4theh111z > Need to install backdoor manually");
             }
-            else*/ if (hostname == "fulcrumassets") {
+            else if (hostname == "fulcrumassets") {
                 ns.alert("Gained root access to fulcrumassets > Need to install backdoor manually");
-            }
+            }*/
 
             await deployScripts(ns, hostname);
             return true;

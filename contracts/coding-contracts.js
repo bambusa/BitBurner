@@ -53,7 +53,6 @@ export async function readContracts(ns, index) {
 		else {
 			ns.tprint("Index not found");
 		}
-
 	}
 }
 
