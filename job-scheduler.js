@@ -9,9 +9,7 @@ var batchDelay = 2000;
 
 /** @param {import(".").NS} ns */
 export async function main(ns) {
-    //var candidates = getTargetsMoneyMax(ns);
-    //analyzeCycle(ns, "joesguns");
-    var batch = createPrepareBatch(ns, "n00dles");
+    var batch = createBatch(ns, "n00dles");
     setRuntimes(ns, batch);
     await runJobs(ns, batch);
 }
@@ -19,12 +17,25 @@ export async function main(ns) {
 /** @param {import(".").NS} ns
  * @param {JobBatch} batch */
 async function runJobs(ns, batch) {
+    var hostname = "home";
     while (batch.hackJob?.jobStarted == false || batch.weakenAfterHackJob?.jobStarted == false || batch.growJob?.jobStarted == false || batch.weakenAfterGrowJob?.jobStarted == false) {
         var now = Date.now();
-        execJob(batch.hackJob, now, ns);
-        execJob(batch.weakenAfterHackJob, now, ns);
-        execJob(batch.growJob, now, ns);
-        execJob(batch.weakenAfterGrowJob, now, ns);
+        if (!execJob(ns, batch.hackJob, now, hostname)) {
+            await ns.sleep(batchDelay / 2);
+            continue;
+        }
+        if (!execJob(ns, batch.weakenAfterHackJob, now, hostname)) {
+            await ns.sleep(batchDelay / 2);
+            continue;
+        }
+        if (!execJob(ns, batch.growJob, now, hostname)) {
+            await ns.sleep(batchDelay / 2);
+            continue;
+        }
+        if (!execJob(ns, batch.weakenAfterGrowJob, now, hostname)) {
+            await ns.sleep(batchDelay / 2);
+            continue;
+        }
         await ns.sleep(batchDelay / 2);
     }
 }
@@ -32,12 +43,27 @@ async function runJobs(ns, batch) {
 /** @param {import(".").NS} ns
  * @param {Date} now
  * @param {Job} job */
-function execJob(job, now, ns) {
-    if (job?.jobStarted == false && now >= job.runtimeStart) {
-        ns.exec(job.scriptname, "home", job.threads, job.target);
-        job.jobStarted = true;
-        ns.tprint("Started " + job);
+function execJob(ns, job, now, hostname) {
+    if (job != undefined && job.threads > 0) {
+        var ramAvailable = ns.getServerMaxRam(hostname) - ns.getServerUsedRam(hostname);
+        var scriptRam = ns.getScriptRam(job.scriptname, hostname);
+        if (scriptRam * job.threads > ramAvailable) {
+            var threadsAvailable = Math.floor(ramAvailable / scriptRam);
+            ns.tprint("Reducing "+job.threads+" threads to " + threadsAvailable);
+        }
+
+        if (job?.jobStarted == false && now >= job.runtimeStart) {
+            var pid = ns.exec(job.scriptname, "home", threadsAvailable ?? job.threads, job.target);
+            if (pid > 0) {
+                job.jobStarted = true;
+                ns.tprint("Started " + job + " with " + (Date.now() - job.runtimeStart) + " ms delay");
+            } else {
+                ns.tprint("Failed to start " + job);
+                return false;
+            }
+        }
     }
+    return true;
 }
 
 /** @param {import(".").NS} ns
@@ -96,68 +122,24 @@ function getMaxValue(candidates) {
     return maxValue;
 }
 
-/** @param {import(".").NS} ns */
-function analyzeCycle(ns, hostname) {
-    var server = ns.getServer(hostname);
-    ns.tprint("Analzye " + hostname);
-    var formulasExist = ns.fileExists("Formulas.exe");
-
-    // Hack
-    server.hackDifficulty = server.minDifficulty;
-    var hackAmount = server.moneyMax * ns.hackAnalyze(hostname);
-    if (formulasExist) {
-        hackAmount = server.moneyMax * ns.formulas.hacking.hackPercent(server, ns.getPlayer());
-    }
-    var hackThreads = Math.floor(server.moneyMax / hackAmount);
-    var hackTime = ns.getHackTime(hostname);
-    ns.tprint("Could hack " + ns.nFormat(hackAmount, '0.a') + " $ per thread, max " + ns.nFormat(hackAmount * hackThreads, '0.a') + " with " + hackThreads + " threads, takes " + ns.nFormat(hackTime / 1000, '0.a') + " s");
-
-    // Weaken
-    var securityRise = ns.hackAnalyzeSecurity(hackThreads);
-    server.hackDifficulty = server.hackDifficulty + securityRise;
-    var securityThreads = Math.ceil(securityRise / ns.weakenAnalyze(1));
-    var securityTime = ns.getWeakenTime(hostname);
-    if (formulasExist) {
-        securityTime = ns.formulas.hacking.weakenTime(server, ns.getPlayer());
-    }
-    server.hackDifficulty = server.minDifficulty;
-    ns.tprint("Need to weaken " + securityRise + " with " + securityThreads + " threads, takes " + ns.nFormat(securityTime / 1000, '0.a') + " s");
-
-    // Grow
-    var needGrow = server.moneyMax / (server.moneyMax - hackAmount);
-    var growThreads = ns.growthAnalyze(hostname, needGrow);
-    if (formulasExist) {
-        growThreads = Math.ceil(needGrow / ns.formulas.hacking.growPercent(server, 1, ns.getPlayer()));
-    }
-    var growTime = ns.getGrowTime(hostname);
-    ns.tprint("Need to grow x" + needGrow + " with " + growThreads + " threads, takes " + ns.nFormat(growTime / 1000, '0.a') + " s")
-
-    // Weaken
-    var securityRise2 = ns.growthAnalyzeSecurity(growThreads);
-    server.hackDifficulty = server.hackDifficulty + securityRise2;
-    var securityThreads2 = Math.ceil(securityRise2 / ns.weakenAnalyze(1));
-    var securityTime2 = ns.getWeakenTime(hostname);
-    if (formulasExist) {
-        securityTime2 = ns.formulas.hacking.weakenTime(server, ns.getPlayer());
-    }
-    server.hackDifficulty = server.minDifficulty;
-    ns.tprint("Need to weaken " + securityRise2 + " with " + securityThreads2 + " threads, takes " + ns.nFormat(securityTime2 / 1000, '0.a') + " s");
-}
-
 /** 
  * @param {import(".").NS} ns
  * @param {string} hostname of target server
  * @returns {JobBatch} batch of needed jobs without start and end times
  */
-function createPrepareBatch(ns, hostname) {
+function createBatch(ns, hostname) {
     var batch = new JobBatch(hostname);
     var server = ns.getServer(hostname);
-    ns.tprint("Prepare " + hostname);
+    var formulasExist = ns.fileExists("Formulas.exe");
+    ns.tprint("Create batch for "+hostname);
     ns.tprint("Current security: " + server.hackDifficulty + " min security: " + server.minDifficulty + " current money: " + ns.nFormat(server.moneyAvailable, '0.a') + " $ max money: " + ns.nFormat(server.moneyMax, '0.a') + " $");
 
-    batch.weakenAfterHackJob = createWeakenToMinJob(server, ns);
-    batch.growJob = createGrowToMaxJob(server, ns);
-    batch.weakenAfterGrowJob = createWeakenToMinJob(server, ns);
+    if (server.hackDifficulty == server.minDifficulty && server.moneyAvailable == server.moneyMax) {
+        batch.hackJob = createHackJob(server, ns);
+    }
+    batch.weakenAfterHackJob = createWeakenToMinJob(server, ns, formulasExist);
+    batch.growJob = createGrowToMaxJob(server, ns, formulasExist);
+    batch.weakenAfterGrowJob = createWeakenToMinJob(server, ns, formulasExist);
 
     return batch;
 }
@@ -166,18 +148,15 @@ function createPrepareBatch(ns, hostname) {
  * @param {import(".").NS} ns
  * @param {import(".").Server} server
  */
-function createGrowToMaxJob(server, ns) {
-    var formulasExist = ns.fileExists("Formulas.exe");
-    var needGrow = server.moneyMax / server.moneyAvailable;
-    var growThreads = ns.growthAnalyze(server.hostname, needGrow);
-    if (formulasExist) {
-        growThreads = Math.ceil(needGrow / ns.formulas.hacking.growPercent(server, 1, ns.getPlayer()));
-    }
-    var growTime = ns.getGrowTime(server.hostname);
-    ns.tprint("Forecast for growing: Need " + growThreads + " threads and " + ns.nFormat(growTime / 1000, '0.a') + " s for grow x" + needGrow);
-    var tjob = new Job(growScriptname, growThreads, server.hostname, growTime);
-    var securityRise = ns.growthAnalyzeSecurity(growThreads);
-    server.hackDifficulty = server.hackDifficulty + securityRise;
+function createHackJob(server, ns) {
+    var hackAmountPerThread = ns.hackAnalyze(server.hostname);
+    var hackThreads = Math.floor(server.moneyAvailable / hackAmountPerThread);
+    if (hackThreads == 0) return;
+
+    var hackTime = ns.getHackTime(server.hostname);
+    var tjob = new Job(hackScriptname, hackThreads, server.hostname, hackTime);
+    var securityRise = ns.hackAnalyzeSecurity(hackThreads);
+    server.hackDifficulty += securityRise;
     return tjob;
 }
 
@@ -185,10 +164,35 @@ function createGrowToMaxJob(server, ns) {
  * @param {import(".").NS} ns
  * @param {import(".").Server} server
  */
-function createWeakenToMinJob(server, ns) {
-    var formulasExist = ns.fileExists("Formulas.exe");
+function createGrowToMaxJob(server, ns, formulasExist) {
+    var needGrow = server.moneyMax / server.moneyAvailable;
+    if (needGrow == 0) return;
+
+    var growThreads = Math.ceil(ns.growthAnalyze(server.hostname, needGrow));
+    if (formulasExist) {
+        growThreads = Math.ceil(needGrow / ns.formulas.hacking.growPercent(server, 1, ns.getPlayer()));
+    }
+    if (growThreads == 0) return;
+
+    var growTime = ns.getGrowTime(server.hostname);
+    //ns.tprint("Forecast for growing: Need " + growThreads + " threads and " + ns.nFormat(growTime / 1000, '0.a') + " s for grow x" + needGrow);
+    var tjob = new Job(growScriptname, growThreads, server.hostname, growTime);
+    var securityRise = ns.growthAnalyzeSecurity(growThreads);
+    server.hackDifficulty += securityRise;
+    return tjob;
+}
+
+/** 
+ * @param {import(".").NS} ns
+ * @param {import(".").Server} server
+ */
+function createWeakenToMinJob(server, ns, formulasExist) {
     var needWeaken = server.hackDifficulty - server.minDifficulty;
+    if (needWeaken == 0) return;
+
     var securityThreads = Math.ceil(needWeaken / (ns.weakenAnalyze(1)));
+    if (securityThreads == 0) return;
+
     var securityTime = ns.getWeakenTime(server.hostname);
     if (formulasExist) {
         securityTime = ns.formulas.hacking.weakenTime(server, ns.getPlayer());
@@ -248,6 +252,6 @@ class Job {
     jobStarted = false;
 };
 
-Job.prototype.toString = function() {
-    return this.scriptname+" job: "+this.threads+" threads on "+this.target+"; duration: "+Math.round(this.runtime / 1000)+" s "+formatDate(this.runtimeStart)+" - "+formatDate(this.runtimeEnd)+"; started: "+this.jobStarted;
+Job.prototype.toString = function () {
+    return this.scriptname + " job: " + parseInt(this.threads) + " threads on " + this.target + "; duration: " + Math.round(this.runtime / 1000) + " s " + formatDate(this.runtimeStart) + " - " + formatDate(this.runtimeEnd) + "; started: " + this.jobStarted;
 }
