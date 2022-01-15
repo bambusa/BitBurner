@@ -1,18 +1,63 @@
-import {
-    findHackedServers
-} from "libs/server-lib.js";
+import { findHackedServers } from "./libs/server-lib.js";
+import { Executor } from "./models/executor";
+import { Job } from "./models/job.js";
+import { JobBatch } from "./models/job-batch.js";
+
 
 var weakenScriptname = "weaken.js";
 var growScriptname = "grow.js";
 var hackScriptname = "hack.js";
 var batchDelay = 2000;
 
+var batches = {};
+var availableServers = {};
+
 /** @param {import(".").NS} ns */
 export async function main(ns) {
-    var batch = createBatch(ns, "n00dles");
-    setRuntimes(ns, batch);
-    await runJobs(ns, batch);
+    var loop = ns.args[0] ?? true;
+    var executors = {};
+    var batches = {};
+    executeNsFunctions(loop, ns, executors);
+    updateExecutors(loop, executors);
+    updateBatches(loop);
+    
+    //var batch = createBatch(ns, "n00dles");
+    //setRuntimes(ns, batch);
+    //await runJobs(ns, batch);
 }
+
+/** @param {import(".").NS} ns */
+async function executeNsFunctions(loop, ns, executors) {
+    while(loop) {
+        var servers = findHackedServers(ns, "home", "home");
+        for (var serverName of servers) {       
+            /** @type{Executor} */
+            var executor = executors[serverName] ?? new Executor(serverName);
+            var server = ns.getServer(serverName); 
+            executor.ram = server.maxRam - server.ramAvailable;
+            executors[serverName] = executor;
+        }
+        await ns.sleep(5000);
+    }
+}
+
+async function updateExecutors(loop, executors) {
+    while(loop) {
+        console.log("updateAvailableServers "+i.j);
+        await sleep(10000);
+    }
+}
+
+async function updateBatches(loop) {
+    while (loop) {
+        console.log("updateBatches");
+        await sleep(1000);
+    }
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+ }
 
 /** @param {import(".").NS} ns
  * @param {JobBatch} batch */
@@ -21,19 +66,15 @@ async function runJobs(ns, batch) {
     while (batch.hackJob?.jobStarted == false || batch.weakenAfterHackJob?.jobStarted == false || batch.growJob?.jobStarted == false || batch.weakenAfterGrowJob?.jobStarted == false) {
         var now = Date.now();
         if (!execJob(ns, batch.hackJob, now, hostname)) {
-            await ns.sleep(batchDelay / 2);
             continue;
         }
         if (!execJob(ns, batch.weakenAfterHackJob, now, hostname)) {
-            await ns.sleep(batchDelay / 2);
             continue;
         }
         if (!execJob(ns, batch.growJob, now, hostname)) {
-            await ns.sleep(batchDelay / 2);
             continue;
         }
         if (!execJob(ns, batch.weakenAfterGrowJob, now, hostname)) {
-            await ns.sleep(batchDelay / 2);
             continue;
         }
         await ns.sleep(batchDelay / 2);
@@ -148,7 +189,7 @@ function createBatch(ns, hostname) {
  * @param {import(".").NS} ns
  * @param {import(".").Server} server
  */
-function createHackJob(server, ns) {
+function createHackJob(server, ns, threadLimit) {
     var hackAmountPerThread = ns.hackAnalyze(server.hostname);
     var hackThreads = Math.floor(server.moneyAvailable / hackAmountPerThread);
     if (hackThreads == 0) return;
@@ -209,49 +250,3 @@ function formatDate(ms) {
     return formatted_date;
 }
 
-class JobBatch {
-    /** @param{string} target hostname of target */
-    constructor(target) {
-        this.target = target;
-    }
-    /** @type{Job} */
-    hackJob;
-    /** @type{Job} */
-    weakenAfterHackJob;
-    /** @type{Job} */
-    growJob;
-    /** @type{Job} */
-    weakenAfterGrowJob;
-};
-
-class Job {
-    constructor(scriptname, threads, target, runtime, runtimeStart, runtimeEnd, hackAmount) {
-        this.scriptname = scriptname;
-        this.threads = threads;
-        this.target = target;
-        this.runtime = runtime;
-        this.runtimeStart = runtimeStart;
-        this.runtimeEnd = runtimeEnd;
-        this.hackAmount = hackAmount;
-    }
-    /** @type{string} */
-    scriptname;
-    /** @type{number} */
-    threads;
-    /** @type{string} */
-    target;
-    /** @type{number} */
-    runtime;
-    /** @type{number} */
-    runtimeStart;
-    /** @type{number} */
-    runtimeEnd;
-    /** @type{number} */
-    hackAmount;
-    /** @type{boolean} */
-    jobStarted = false;
-};
-
-Job.prototype.toString = function () {
-    return this.scriptname + " job: " + parseInt(this.threads) + " threads on " + this.target + "; duration: " + Math.round(this.runtime / 1000) + " s " + formatDate(this.runtimeStart) + " - " + formatDate(this.runtimeEnd) + "; started: " + this.jobStarted;
-}
