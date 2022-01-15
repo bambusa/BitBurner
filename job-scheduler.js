@@ -1,7 +1,18 @@
-import { findHackedServers } from "./libs/server-lib.js";
-import { Executor } from "./models/executor";
-import { Job } from "./models/job.js";
-import { JobBatch } from "./models/job-batch.js";
+import {
+    findHackedServers
+} from "./libs/server-lib.js";
+import {
+    ServerInfo
+} from "./models/server-info";
+import {
+    Job
+} from "./models/job.js";
+import {
+    JobBatch
+} from "./models/job-batch.js";
+import {
+    createBatch
+} from "./libs/batch-lib";
 
 
 var weakenScriptname = "weaken.js";
@@ -15,55 +26,82 @@ var availableServers = {};
 /** @param {import(".").NS} ns */
 export async function main(ns) {
     var loop = ns.args[0] ?? true;
-    var executors = {};
+    var hackedServers = {};
     var batches = {};
-    executeNsFunctions(loop, ns, executors);
+    var targets = {};
+    var misc = {};
+    executeNsFunctions(loop, ns, hackedServers, misc, executors);
     updateExecutors(loop, executors);
     updateBatches(loop);
-    
+
     //var batch = createBatch(ns, "n00dles");
     //setRuntimes(ns, batch);
     //await runJobs(ns, batch);
 }
 
-/** @param {import(".").NS} ns */
-async function executeNsFunctions(loop, ns, executors) {
-    while(loop) {
-        var servers = findHackedServers(ns, "home", "home");
-        for (var serverName of servers) {       
-            /** @type{Executor} */
-            var executor = executors[serverName] ?? new Executor(serverName);
-            var server = ns.getServer(serverName); 
-            executor.ram = server.maxRam - server.ramAvailable;
-            executors[serverName] = executor;
-        }
+/** @param {boolean} loop
+ * @param {import(".").NS} ns */
+async function executeNsFunctions(loop, ns, hackedServers, misc) {
+    while (loop) {
+        updateHackedServers(ns, hackedServers);
+        misc.formulasExists = ns.fileExists("Formulas.exe");
+
         await ns.sleep(5000);
     }
 }
 
-async function updateExecutors(loop, executors) {
-    while(loop) {
-        console.log("updateAvailableServers "+i.j);
-        await sleep(10000);
+/** @param {import(".").NS} ns
+ * @param {hackedServers} */
+function updateHackedServers(ns, hackedServers) {
+    console.log("updateHackedServers");
+    var servers = findHackedServers(ns, "home", "home");
+    for (var serverName of servers) {
+        var server = ns.getServer(serverName);
+
+        /** @type{ServerInfo} */
+        var serverInfo = hackedServers[serverName] ?? new ServerInfo(server);
+        serverInfo.serverAtMinSecurity = server.hackDifficulty == server.minDifficulty;
+        serverInfo.serverAtMaxMoney = server.moneyMax == server.moneyAvailable;
+
+        if (serverInfo.serverAtMinSecurity) {
+            // Hack Info
+            serverInfo.hackTime = ns.getHackTime(server.hostname);
+            serverInfo.hackSecurityRise = ns.hackAnalyzeSecurity(1);
+
+            // Grow Info
+            var neededGrowToMax = server.moneyMax / server.moneyAvailable;
+            serverInfo.growThreadsToMax = Math.round(ns.growthAnalyze(server.hostname, neededGrowToMax));
+            serverInfo.growThreadsToDouble = Math.round(ns.growthAnalyze(server.hostname, 2));
+            serverInfo.growTime = ns.getGrowTime(server.hostname);
+            serverInfo.growSecurityRise = ns.growthAnalyzeSecurity(growThreads);
+
+            // Weaken Info
+            serverInfo.weakenAmount = ns.weakenAnalyze(1);
+            serverInfo.weakenTime = ns.getWeakenTime(server.hostname);
+            serverInfo.updateHackedServersAt = Date.now();
+            hackedServers[serverName] = serverInfo;
+        }
     }
 }
 
-async function updateBatches(loop) {
-    while (loop) {
-        console.log("updateBatches");
-        await sleep(1000);
+async function updateBatches(hackedServers) {
+    console.log("updateBatches");
+    for (var hackedServer in hackedServers) {
+        /** @type{ServerInfo} */
+        var serverInfo = hackedServers[hackedServer];
+        var batch = createBatch(serverInfo);
     }
 }
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
- }
+}
 
 /** @param {import(".").NS} ns
  * @param {JobBatch} batch */
 async function runJobs(ns, batch) {
     var hostname = "home";
-    while (batch.hackJob?.jobStarted == false || batch.weakenAfterHackJob?.jobStarted == false || batch.growJob?.jobStarted == false || batch.weakenAfterGrowJob?.jobStarted == false) {
+    while (batch.hackJob ? .jobStarted == false || batch.weakenAfterHackJob ? .jobStarted == false || batch.growJob ? .jobStarted == false || batch.weakenAfterGrowJob ? .jobStarted == false) {
         var now = Date.now();
         if (!execJob(ns, batch.hackJob, now, hostname)) {
             continue;
@@ -90,11 +128,11 @@ function execJob(ns, job, now, hostname) {
         var scriptRam = ns.getScriptRam(job.scriptname, hostname);
         if (scriptRam * job.threads > ramAvailable) {
             var threadsAvailable = Math.floor(ramAvailable / scriptRam);
-            ns.tprint("Reducing "+job.threads+" threads to " + threadsAvailable);
+            ns.tprint("Reducing " + job.threads + " threads to " + threadsAvailable);
         }
 
-        if (job?.jobStarted == false && now >= job.runtimeStart) {
-            var pid = ns.exec(job.scriptname, "home", threadsAvailable ?? job.threads, job.target);
+        if (job ? .jobStarted == false && now >= job.runtimeStart) {
+            var pid = ns.exec(job.scriptname, "home", threadsAvailable ? ? job.threads, job.target);
             if (pid > 0) {
                 job.jobStarted = true;
                 ns.tprint("Started " + job + " with " + (Date.now() - job.runtimeStart) + " ms delay");
@@ -110,7 +148,7 @@ function execJob(ns, job, now, hostname) {
 /** @param {import(".").NS} ns
  * @param {JobBatch} batch */
 function setRuntimes(ns, batch) {
-    var durations = [batch.hackJob?.runtime, batch.weakenAfterHackJob?.runtime, batch.growJob?.runtime, batch.weakenAfterGrowJob?.runtime];
+    var durations = [batch.hackJob ? .runtime, batch.weakenAfterHackJob ? .runtime, batch.growJob ? .runtime, batch.weakenAfterGrowJob ? .runtime];
     var maxDuration = getMaxValue(durations);
     var now = Date.now();
 
@@ -163,90 +201,8 @@ function getMaxValue(candidates) {
     return maxValue;
 }
 
-/** 
- * @param {import(".").NS} ns
- * @param {string} hostname of target server
- * @returns {JobBatch} batch of needed jobs without start and end times
- */
-function createBatch(ns, hostname) {
-    var batch = new JobBatch(hostname);
-    var server = ns.getServer(hostname);
-    var formulasExist = ns.fileExists("Formulas.exe");
-    ns.tprint("Create batch for "+hostname);
-    ns.tprint("Current security: " + server.hackDifficulty + " min security: " + server.minDifficulty + " current money: " + ns.nFormat(server.moneyAvailable, '0.a') + " $ max money: " + ns.nFormat(server.moneyMax, '0.a') + " $");
-
-    if (server.hackDifficulty == server.minDifficulty && server.moneyAvailable == server.moneyMax) {
-        batch.hackJob = createHackJob(server, ns);
-    }
-    batch.weakenAfterHackJob = createWeakenToMinJob(server, ns, formulasExist);
-    batch.growJob = createGrowToMaxJob(server, ns, formulasExist);
-    batch.weakenAfterGrowJob = createWeakenToMinJob(server, ns, formulasExist);
-
-    return batch;
-}
-
-/** 
- * @param {import(".").NS} ns
- * @param {import(".").Server} server
- */
-function createHackJob(server, ns, threadLimit) {
-    var hackAmountPerThread = ns.hackAnalyze(server.hostname);
-    var hackThreads = Math.floor(server.moneyAvailable / hackAmountPerThread);
-    if (hackThreads == 0) return;
-
-    var hackTime = ns.getHackTime(server.hostname);
-    var tjob = new Job(hackScriptname, hackThreads, server.hostname, hackTime);
-    var securityRise = ns.hackAnalyzeSecurity(hackThreads);
-    server.hackDifficulty += securityRise;
-    return tjob;
-}
-
-/** 
- * @param {import(".").NS} ns
- * @param {import(".").Server} server
- */
-function createGrowToMaxJob(server, ns, formulasExist) {
-    var needGrow = server.moneyMax / server.moneyAvailable;
-    if (needGrow == 0) return;
-
-    var growThreads = Math.ceil(ns.growthAnalyze(server.hostname, needGrow));
-    if (formulasExist) {
-        growThreads = Math.ceil(needGrow / ns.formulas.hacking.growPercent(server, 1, ns.getPlayer()));
-    }
-    if (growThreads == 0) return;
-
-    var growTime = ns.getGrowTime(server.hostname);
-    //ns.tprint("Forecast for growing: Need " + growThreads + " threads and " + ns.nFormat(growTime / 1000, '0.a') + " s for grow x" + needGrow);
-    var tjob = new Job(growScriptname, growThreads, server.hostname, growTime);
-    var securityRise = ns.growthAnalyzeSecurity(growThreads);
-    server.hackDifficulty += securityRise;
-    return tjob;
-}
-
-/** 
- * @param {import(".").NS} ns
- * @param {import(".").Server} server
- */
-function createWeakenToMinJob(server, ns, formulasExist) {
-    var needWeaken = server.hackDifficulty - server.minDifficulty;
-    if (needWeaken == 0) return;
-
-    var securityThreads = Math.ceil(needWeaken / (ns.weakenAnalyze(1)));
-    if (securityThreads == 0) return;
-
-    var securityTime = ns.getWeakenTime(server.hostname);
-    if (formulasExist) {
-        securityTime = ns.formulas.hacking.weakenTime(server, ns.getPlayer());
-    }
-    //ns.tprint("Forecast for weakening: Need " + securityThreads + " threads and " + ns.nFormat(securityTime / 1000, '0.a') + " s for weaken " + needWeaken);
-    var tjob = new Job(weakenScriptname, securityThreads, server.hostname, securityTime);
-    server.hackDifficulty = server.minDifficulty;
-    return tjob;
-}
-
 function formatDate(ms) {
     var date = new Date(ms);
     let formatted_date = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + " " + date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
     return formatted_date;
 }
-

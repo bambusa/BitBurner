@@ -73,11 +73,3 @@ export async function tryRootServer(ns, hostname) {
 
     return false;
 }
-
-/** @param {import("..").NS} ns **/
-async function deployScripts(ns, hostname) {
-    if (!ns.fileExists(scripts[scripts.length - 1])) {
-        await ns.scp(scripts, "home", hostname);
-        ns.tprintf("Deployed scripts to %s", hostname);
-    }
-}

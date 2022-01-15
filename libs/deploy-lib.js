@@ -1,5 +1,11 @@
-import { findHackableServers, findHackedServers } from "libs/server-lib.js";
-import { tryRootServer, scripts } from "libs/hack-lib.js";
+import {
+    findHackableServers,
+    findHackedServers
+} from "libs/server-lib.js";
+import {
+    tryRootServer,
+    scripts
+} from "libs/hack-lib.js";
 
 /** @param {import("..").NS} ns **/
 export async function calculateMaxThreads(ns, hostname, scriptname) {
@@ -18,94 +24,44 @@ export async function calculateMaxThreads(ns, hostname, scriptname) {
     return threads;
 }
 
-/** @param {import("..").NS} ns **/
-export async function exploreAndRootServers(ns, home, origin) {
-    let hostnames = await findHackableServers(ns, home, origin);
-    if (hostnames.length > 0) {
-        //ns.tprintf("-- Found hackable servers at %s from %s: %s", home, origin, hostnames);
-        for (let i = 0; i < hostnames.length; i++) {
-            let iHostname = hostnames[i];
-            if (await tryRootServer(ns, iHostname)){
-                await exploreAndRootServers(ns, iHostname, home);
+/** @param {import("..").NS} ns 
+ * @param {string[]} scripts
+ * @param {string} hostname
+ * @param {string} targetname
+ * @param {any[]} parameter
+ * @param {boolean} runScript
+ * @param {boolean} overwrite
+ */
+async function deployScriptTo(ns, scripts, hostname, targetname, parameter, runScript, overwrite) {
+    if (typeof (scripts) == Array && scripts.length > 0) {
+        if (overwrite != true && ns.scriptRunning(scriptname, hostname)) {
+            console.log("-- %s is running already on %s", scriptname, hostname);
+            return;
+        }
+
+        for (var scriptname of scripts) {
+            await ns.scp(scriptname, hostname, targetname);
+            if (runScript == true) {
+                let threads = await calculateMaxThreads(ns, hostname, scriptname);
+                if (threads > 0) {
+                    var pid = 0;
+                    if (parameter != undefined) {
+                        pid = ns.exec(scriptname, hostname, threads, parameter);
+                    } else {
+                        pid = ns.exec(scriptname, hostname, threads);
+                    }
+
+                    if (pid > 0) {
+                        ns.tprintf("- Deployed %s on %s %s", scriptname + " -t " + threads, hostname, targetname);
+                    } else {
+                        ns.print("- Could not exec " + scriptname + " -t " + threads + " on " + hostname);
+                    }
+                } else {
+                    ns.print("- Could not deploy " + scriptname + " on " + hostname + ": " + ns.nFormat(ns.getServerMaxRam(hostname), '0.0') + " GB RAM available");
+                }
             }
         }
+    } else {
+        console.log("Error: No scripts given");
     }
-}
-
-/** @param {import("..").NS} ns **/
-async function exploreAndDeployServers(ns, scriptname, home, origin, target) {
-    let hostnames = await findHackableServers(ns, home, origin);
-    if (hostnames.length > 0) {
-        //ns.tprintf("-- Found hackable servers at %s from %s: %s", home, origin, hostnames);
-        for (let i = 0; i < hostnames.length; i++) {
-            let iHostname = hostnames[i];
-            if (await tryRootServer(ns, iHostname)) {
-                await deployScriptTo(ns, scriptname, iHostname, target);
-                await exploreAndDeployServers(ns, scriptname, iHostname, home, target);
-            }
-        }
-    }
-}
-
-/** @param {import("..").NS} ns **/
-async function deployScriptTo(ns, scriptname, hostname, target) {
-    if (ns.scriptRunning(scriptname, hostname)) {
-        //ns.tprintf("-- %s is running already on %s", scriptname, hostname);
-        return;
-    }
-
-    await ns.scp(scriptname, "home", hostname);
-    let threads = await calculateMaxThreads(ns, hostname, scriptname);
-    if (threads > 0) {
-        var pid = 0;
-        if (target != undefined) {
-            pid = ns.exec(scriptname, hostname, threads, target);
-        }
-        else {
-            pid = ns.exec(scriptname, hostname, threads);
-        }
-
-        if (pid > 0) {
-            ns.tprintf("- Deployed %s on %s %s", scriptname + " -t " + threads, hostname, target);
-        }
-        else {
-            ns.print("- Could not exec " + scriptname + " -t " + threads + " on " + hostname);
-        }
-    }
-    else {
-        ns.print("- Could not deploy " + scriptname + " on " + hostname + ": " + ns.nFormat(ns.getServerMaxRam(hostname), '0.0') + " GB RAM available");
-    }
-}
-
-/** @param {import("..").NS} ns **/
-export async function deployScriptsToAllServers(ns) {
-    var hackedServers = await findHackedServers(ns, "home", "home");
-    var hostnames = ns.getPurchasedServers().concat(hackedServers);
-    for (var hostname of hostnames) {
-        await deployScripts(ns, hostname);
-    }
-}
-
-/** @param {import("..").NS} ns **/
-export async function stopAllScripts(ns) {
-    var hostnames = ns.getPurchasedServers();
-    hostnames = hostnames.concat(await findHackedServers(ns, "home"));
-    for (var i = 0; i < hostnames.length; i++) {
-        ns.killall(hostnames[i]);
-    }
-    ns.tprintf("Stopped all scripts on %u servers", hostnames.length);
-}
-
-/** @param {import("..").NS} ns **/
-export async function deployScripts(ns, hostname) {
-    if (!ns.fileExists(scripts[scripts.length - 1])) {
-        await ns.scp(scripts, "home", hostname);
-        ns.tprintf("Deployed scripts to %s", hostname);
-    }
-}
-
-/** @param {import("..").NS} ns **/
-export async function main(ns) {
-    await deployScriptsToAllServers(ns);
-    ns.tprint("Deployed scripts to all servers");
 }

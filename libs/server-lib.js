@@ -1,3 +1,8 @@
+import {
+    tryRootServer,
+    scripts
+} from "libs/hack-lib.js";
+
 const purchasedServerPrefix = "pserv";
 
 /** @param {import("..").NS} ns
@@ -14,6 +19,20 @@ export function findHackableServers(ns, home, origin) {
     });
 
     return hackedServers;
+}
+
+/** @param {import("..").NS} ns **/
+export async function exploreAndRootServers(ns, home, origin) {
+    let hostnames = findHackableServers(ns, home, origin);
+    if (hostnames.length > 0) {
+        //ns.tprintf("-- Found hackable servers at %s from %s: %s", home, origin, hostnames);
+        for (let i = 0; i < hostnames.length; i++) {
+            let iHostname = hostnames[i];
+            if (await tryRootServer(ns, iHostname)) {
+                await exploreAndRootServers(ns, iHostname, home);
+            }
+        }
+    }
 }
 
 /** @param {import("..").NS} ns
@@ -44,29 +63,6 @@ export function findHackedServers(ns, home, origin, hackedServers) {
 }
 
 /** @param {import("..").NS} ns
- * @param {number} threads
- * @returns {string} hostname **/
-export function findServerWithBestHackingPotential(ns, threads) {
-    if (threads == undefined) {
-        threads = 100;
-    }
-    var servers = findHackedServers(ns, "home");
-    var bestServer;
-    var bestPotential;
-    for (var i = 0; i < servers.length; i++) {
-        var server = servers[i];
-        var potential = ns.getServerMaxMoney(server) * ns.hackAnalyze(server) * threads / ns.growthAnalyze(server, 2) * ns.hackAnalyzeSecurity(threads) * ns.growthAnalyzeSecurity(threads);
-        if (bestPotential == undefined || potential > bestPotential) {
-            bestServer = server;
-            bestPotential = potential;
-        }
-    }
-
-    //ns.tprintf("%s has best potential of %s", bestServer, bestPotential);
-    return bestServer;
-}
-
-/** @param {import("..").NS} ns
  * @param {number} ram
  * @returns {string} hostname of bought server **/
 export function tryPurchaseServer(ns, ram) {
@@ -81,13 +77,11 @@ export function tryPurchaseServer(ns, ram) {
         if (moneyAvailable > moneyNeeded) {
             ns.tprintf("- Purchasing new %u GB server", ram);
             return ns.purchaseServer(purchasedServerPrefix, ram);
-        }
-        else {
+        } else {
             console.log("-- Could not purchase server; Missing " + ns.nFormat(moneyAvailable - moneyNeeded, '0a') + " $ for sale price of " + ns.nFormat(moneyNeeded, '0a') + " $")
             //ns.tprint("-- Could not purchase server; Missing "+ns.nFormat(moneyAvailable - moneyNeeded, '0a')+" $ for sale price of "+ns.nFormat(moneyNeeded, '0a')+" $");
         }
-    }
-    else {
+    } else {
         console.log("- Server limit reached");
         //ns.tprint("- Server limit reached");
     }
@@ -107,8 +101,7 @@ export function tryReplaceServer(ns, ram) {
                 ns.killall(hostname);
                 ns.deleteServer(hostname);
                 return tryPurchaseServer(ns, ram);
-            }
-            else {
+            } else {
                 console.log("- Money available %s; needed for %s GB RAM: %s", ns.nFormat(moneyAvailable, '0.a'), ram, ns.nFormat(moneyNeeded, '0.a'));
                 return;
             }
