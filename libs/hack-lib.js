@@ -1,5 +1,6 @@
+import {deployScriptTo} from "libs/deploy-lib"
+
 export const portBusters = ['BruteSSH.exe', 'FTPCrack.exe', 'relaySMTP.exe', 'HTTPWorm.exe', 'SQLInject.exe'];
-export const scripts = ["weaken.js", "grow.js", "hack.js"];
 
 /** @param {import("..").NS} ns **/
 export async function getNumberOfOwnedPortBusters(ns) {
@@ -63,7 +64,8 @@ export async function tryRootServer(ns, hostname) {
                 ns.alert("Gained root access to fulcrumassets > Need to install backdoor manually");
             }*/
 
-            await deployScripts(ns, hostname);
+            var scriptArray = [scriptsPath+scripts[0], scriptsPath+scripts[1], scriptsPath+scripts[2]]
+            await deployScriptTo(ns, scriptArray, "home", hostname);
             return true;
         }
     }

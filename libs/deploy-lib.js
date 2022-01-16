@@ -1,11 +1,14 @@
-import {
-    findHackableServers,
-    findHackedServers
-} from "libs/server-lib.js";
-import {
-    tryRootServer,
-    scripts
-} from "libs/hack-lib.js";
+export const scripts = ["/scripts/weaken.js", "/scripts/grow.js", "/scripts/hack.js"];
+
+/** 
+ * @param {import("..").NS} ns 
+ */
+export async function main(ns) {
+    console.log("main1");
+    var hostname = ns.args[0];
+    console.log("main2");
+    await deployScriptTo(ns, scripts, "home", hostname);
+}
 
 /** @param {import("..").NS} ns **/
 export async function calculateMaxThreads(ns, hostname, scriptname) {
@@ -24,23 +27,25 @@ export async function calculateMaxThreads(ns, hostname, scriptname) {
     return threads;
 }
 
-/** @param {import("..").NS} ns 
- * @param {string[]} scripts
+/** 
+ * @param {import("..").NS} ns 
+ * @param {string[]} copyScripts
  * @param {string} hostname
  * @param {string} targetname
  * @param {any[]} parameter
  * @param {boolean} runScript
  * @param {boolean} overwrite
  */
-async function deployScriptTo(ns, scripts, hostname, targetname, parameter, runScript, overwrite) {
-    if (typeof (scripts) == Array && scripts.length > 0) {
+export async function deployScriptTo(ns, copyScripts, hostname, targetname, parameter, runScript, overwrite) {
+    if (copyScripts.length > 0) {
         if (overwrite != true && ns.scriptRunning(scriptname, hostname)) {
             console.log("-- %s is running already on %s", scriptname, hostname);
             return;
         }
 
-        for (var scriptname of scripts) {
+        for (var scriptname of copyScripts) {
             await ns.scp(scriptname, hostname, targetname);
+            console.log("Copied " + scriptname + " to " + targetname);
             if (runScript == true) {
                 let threads = await calculateMaxThreads(ns, hostname, scriptname);
                 if (threads > 0) {

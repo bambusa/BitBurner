@@ -1,6 +1,5 @@
 import {
-    tryRootServer,
-    scripts
+    tryRootServer
 } from "libs/hack-lib.js";
 
 const purchasedServerPrefix = "pserv";

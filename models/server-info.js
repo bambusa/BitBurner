@@ -13,6 +13,8 @@ export class ServerInfo {
     /** @type{boolean} */
     isHacked;
     /** @type{number} */
+    hackAmount;
+    /** @type{number} */
     hackTime;
     /** @type{number} */
     hackSecurityRise;
@@ -30,4 +32,14 @@ export class ServerInfo {
     weakenTime;
     /** @type{number} */
     updateHackedServersAt;
+    /** @type{number} */
+    predictedSecurity;
+    /** @type{number} */
+    fullBatchTime;
+    /** @type{number} */
+    batchMoneyPerSecond;
+    /** @type{number} */
+    freeRam;
+    /** @type{number} */
+    createdAtHackExp;
 }

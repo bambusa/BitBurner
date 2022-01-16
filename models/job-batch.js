@@ -3,6 +3,8 @@ export class JobBatch {
     constructor(target) {
         this.target = target;
     }
+    /** @type{string} */
+    target;
     /** @type{Job} */
     hackJob;
     /** @type{Job} */
@@ -11,4 +13,6 @@ export class JobBatch {
     growJob;
     /** @type{Job} */
     weakenAfterGrowJob;
+    /** @type{number[]} */
+    jobsRunsUntil;
 };
