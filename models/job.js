@@ -21,6 +21,8 @@ export class Job {
     /** @type{number} */
     runtimeEnd;
     /** @type{number} */
+    startOffset;
+    /** @type{number} */
     hackAmount;
     /** @type{boolean} */
     jobStarted = false;

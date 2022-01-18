@@ -11,7 +11,9 @@ import {
     JobBatch
 } from "models/job-batch.js";
 import {
-    createBatch
+    createBatch,
+    setDurationAndOffset,
+    setRuntimes
 } from "libs/batch-lib";
 import {
     sortFirstColumn,
@@ -37,8 +39,9 @@ export async function main(ns) {
     var batches = {};
     var hostnamesByPriority = [];
     var misc = {};
+    var purchasedServers = {};
 
-    await executeNsFunctions(loop, ns, hackedServers, batches, hostnamesByPriority, misc);
+    await executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, hostnamesByPriority, misc);
 
     //var batch = createBatch(ns, "n00dles");
     //setRuntimes(ns, batch);
@@ -49,7 +52,7 @@ export async function main(ns) {
  * @param {boolean} loop
  * @param {import(".").NS} ns 
  */
-async function executeNsFunctions(loop, ns, hackedServers, batches, hostnamesByPriority, misc) {
+async function executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, hostnamesByPriority, misc) {
     console.log("executeNsFunctions");
     if (weakenScriptRam == undefined) {
         weakenScriptRam = ns.getScriptRam(scripts[0])
@@ -64,39 +67,76 @@ async function executeNsFunctions(loop, ns, hackedServers, batches, hostnamesByP
     while (true) {
         var player = ns.getPlayer();
         updateHackedServers(ns, hackedServers, player);
+        updatePurchasedServers(ns, purchasedServers);
         misc.formulasExists = ns.fileExists("Formulas.exe");
         updateBatches(hackedServers, batches);
         priotizeBatches(hackedServers, batches, hostnamesByPriority);
-        assignAndRunJobs(ns, hackedServers, hostnamesByPriority, batches);
+        assignBatches(ns, hackedServers, purchasedServers, hostnamesByPriority, batches);
 
         if (!loop) break;
         await ns.sleep(10000);
     }
 }
 
-function assignAndRunJobs(ns, hackedServers, hostnamesByPriority, batches) {
-    for (var hostname in hackedServers) {
+function assignBatches(ns, hackedServers, hostnamesByPriority, batches) {
+    var currentBatch = hostnamesByPriority[0];
+    if (currentBatch == undefined) {
+        console.log("no batches to assign");
+    }
+
+    for (var hostname in purchasedServers.concat(hackedServers)) {
         /** @type{ServerInfo} */
-        var serverInfo = hackedServers[hostname];
+        var serverInfo = purchasedServers[hostname] ?? hackedServers[hostname];
+
         if (serverInfo.freeRam >= hackScriptRam) {
-            console.log(hostnamesByPriority);
-            var targetname = hostnamesByPriority[0];
-            /** @type{JobBatch} */
-            var batch = batches[targetname];
 
-
-            if (batch != undefined) {
-                console.log("assigning " + hostname + " to hack " + batch.target);
-                runJobs(ns, batch, serverInfo, batches, targetname);
-            } else {
-                console.log("batch undefined for "+targetname);
-                hostnamesByPriority.shift();
+            for (var targetname of hostnamesByPriority) {
+                /** @type{JobBatch} */
+                var batch = batches[targetname];
+                if (batch.batchStart == undefined || batch.batchStart.length == 0) {
+                    setRuntimes(batch);
+                    runJobs(ns, batch, serverInfo);
+                }
             }
-        }
-        else {
-            console.log("not enough ram available: "+serverInfo.freeRam);
+        } else {
+            console.log("not enough ram available: " + serverInfo.freeRam);
             console.log(serverInfo);
         }
+    }
+}
+
+function getJobWithLowestOffset(batch) {
+    var highestOffset = 0;
+    var jobWithHighestOffset;
+    if (batch.hackJob?.startOffset > highestOffset) {
+        highestOffset = batch.hackJob.startOffset;
+        jobWithHighestOffset = batch.hackJob;
+    }
+    if (batch.weakenAfterHackJob?.startOffset > highestOffset) {
+        highestOffset = batch.weakenAfterHackJob.startOffset;
+        jobWithHighestOffset = batch.weakenAfterHackJob;
+    }
+    if (batch.growJob?.startOffset > highestOffset) {
+        highestOffset = batch.growJob.startOffset;
+        jobWithHighestOffset = batch.growJob;
+    }
+    if (batch.weakenAfterGrowJob?.startOffset > highestOffset) {
+        highestOffset = batch.weakenAfterGrowJob.startOffset;
+        jobWithHighestOffset = batch.weakenAfterGrowJob;
+    }
+    return jobWithHighestOffset;
+}
+
+/** 
+ * @param {import("index").NS} ns
+ */
+function updatePurchasedServers(ns, purchasedServers) {
+    var servers = ns.getPurchasedServers();
+    for (var serverName of servers) {
+        var server = ns.getServer(serverName);
+        var serverInfo = purchasedServers[serverName] ?? new ServerInfo(server, "purchased");
+        serverInfo.freeRam = server.maxRam - server.ramUsed;
+        purchasedServers[serverName] = serverInfo;
     }
 }
 
@@ -110,7 +150,7 @@ function updateHackedServers(ns, hackedServers, player) {
         var server = ns.getServer(serverName);
 
         /** @type{ServerInfo} */
-        var serverInfo = hackedServers[serverName] ?? new ServerInfo(server);
+        var serverInfo = hackedServers[serverName] ?? new ServerInfo(server, "hacked");
         if (player.hacking_exp != serverInfo.createdAtHackExp) {
             serverInfo.createdAtHackExp = player.hacking_exp;
             serverInfo.serverAtMinSecurity = server.hackDifficulty == server.minDifficulty;
@@ -149,7 +189,7 @@ async function updateBatches(hackedServers, batches) {
             /** @type{ServerInfo} */
             var serverInfo = hackedServers[hackedServer];
             var batch = createBatch(serverInfo);
-            setRuntimes(batch);
+            setDurationAndOffset(batch);
             batches[hackedServer] = batch;
         }
     }
@@ -187,7 +227,7 @@ async function priotizeBatches(hackedServers, batches, hostnamesByPriority) {
             hostnamesByPriority.push(moneyHostname[1]);
         }
     }
-    if (moneyHostnameDictionary[0] != undefined && moneyHostnameDictionary[0][0] != undefined   ) {
+    if (moneyHostnameDictionary[0] != undefined && moneyHostnameDictionary[0][0] != undefined) {
         console.log("Priotized hacking " + moneyHostnameDictionary[0][1] + " for " + moneyHostnameDictionary[0][0] + " $ per second (returns " + hostnamesByPriority[0] + ")");
     }
 
@@ -204,42 +244,12 @@ function sleep(ms) {
  * @param {JobBatch} batch 
  * @param {ServerInfo} serverInfo
  */
-async function runJobs(ns, batch, serverInfo, batches, targetname) {
+async function runJobs(ns, batch, serverInfo) {
     var hostname = serverInfo.server.hostname;
-    //while (batch.hackJob?.jobStarted == false || batch.weakenAfterHackJob?.jobStarted == false || batch.growJob?.jobStarted == false || batch.weakenAfterGrowJob?.jobStarted == false) {
-        var now = Date.now();
-        if (serverInfo.freeRam >= hackScriptRam && execJob(ns, batch.hackJob, hostname)) {
-            serverInfo.freeRam -= hackScriptRam;
-            batch.hackJob = undefined;
-        } else {
-            //continue;
-        }
-
-        if (serverInfo.freeRam >= weakenScriptRam && execJob(ns, batch.weakenAfterHackJob, hostname)) {
-            serverInfo.freeRam -= weakenScriptRam;
-            batch.weakenAfterHackJob = undefined;
-        } else {
-            //continue;
-        }
-
-        if (serverInfo.freeRam >= growScriptRam && execJob(ns, batch.growJob, hostname)) {
-            serverInfo.freeRam -= growScriptRam;
-            batch.growJob = undefined;
-        } else {
-            //continue;
-        }
-
-        if (serverInfo.freeRam >= weakenScriptRam && execJob(ns, batch.weakenAfterGrowJob, hostname)) {
-            serverInfo.freeRam -= weakenScriptRam;
-            batch.weakenScriptRam = undefined;
-        } else {
-            //continue;
-        }
-
-        //await ns.sleep(batchDelay / 2);
-    //}
-
-    delete batches[targetname];
+    execJob(ns, batch.hackJob, hostname)
+    execJob(ns, batch.weakenAfterHackJob, hostname)
+    execJob(ns, batch.growJob, hostname)
+    execJob(ns, batch.weakenAfterGrowJob, hostname)
 }
 
 /** 
@@ -249,81 +259,28 @@ async function runJobs(ns, batch, serverInfo, batches, targetname) {
  */
 async function execJob(ns, job, hostname) {
     if (job != undefined && job.threads > 0) {
-        var ramAvailable = ns.getServerMaxRam(hostname) - ns.getServerUsedRam(hostname);
-        var scriptRam = ns.getScriptRam(job.scriptname, hostname);
-        if (scriptRam * job.threads > ramAvailable) {
-            var threadsAvailable = Math.floor(ramAvailable / scriptRam);
-            console.log("Reducing " + job.threads + " threads to " + threadsAvailable);
-        }
-
         while (!job.jobStarted) {
-            
-        if (Date.now() >= job.runtimeStart) {
-            var pid = ns.exec(job.scriptname, hostname, threadsAvailable ?? job.threads, job.target);
-            if (pid > 0) {
-                job.jobStarted = true;
-                //if (threadsAvailable != undefined) job.threads -= threadsAvailable;
-                console.log("Started " + job + " with " + (Date.now() - job.runtimeStart) + " ms delay");
-            } else {
-                console.log("Failed to start " + job);
-                return false;
-            }
-        }
+            if (Date.now() >= job.runtimeStart) {
+                var threadsAvailable = Math.round(serverInfo.freeRam / hackScriptRam);
+                var assignThreads = threadsAvailable < job.threads ? threadsAvailable : job.threads;
+                if (assignThreads != job.threads) {
+                    console.log("Reduced " + job + " from " + job.threads + " to " + assignThreads + " threads");
+                    job.threads -= assignThreads;
+                }
 
-        await sleep(1000);
-    }
+                var pid = ns.exec(job.scriptname, hostname, assignThreads, job.target);
+                if (pid > 0) {
+                    job.jobStarted = true;
+                    //if (threadsAvailable != undefined) job.threads -= threadsAvailable;
+                    console.log("Started " + job + " with " + (Date.now() - job.runtimeStart) + " ms delay");
+                } else {
+                    console.log("Failed to start " + job);
+                    return false;
+                }
+            }
+
+            await sleep(1000);
+        }
     }
     return true;
-}
-
-/** 
- * @param {JobBatch} batch 
- */
-function setRuntimes(batch) {
-    if (batch?.growJob?.runtimeStart != undefined) {
-        return;
-    }
-
-    var durations = [batch.hackJob?.runtime, batch.weakenAfterHackJob?.runtime, batch.growJob?.runtime, batch.weakenAfterGrowJob?.runtime];
-    var maxDuration = getMaxValue(durations);
-    var now = Date.now();
-
-    if (batch.hackJob != undefined) {
-        var end = now + maxDuration + (4 * batchDelay);
-        var start = end - batch.hackJob.runtime;
-        batch.hackJob.runtimeEnd = end;
-        batch.hackJob.runtimeStart = start;
-    }
-
-    if (batch.weakenAfterGrowJob != undefined) {
-        var end = now + maxDuration + (3 * batchDelay);
-        var start = end - batch.weakenAfterGrowJob.runtime;
-        batch.weakenAfterGrowJob.runtimeEnd = end;
-        batch.weakenAfterGrowJob.runtimeStart = start;
-    }
-
-    if (batch.growJob != undefined) {
-        var end = now + maxDuration + (2 * batchDelay);
-        var start = end - batch.growJob.runtime;
-        batch.growJob.runtimeEnd = end;
-        batch.growJob.runtimeStart = start;
-    }
-
-    if (batch.weakenAfterHackJob != undefined) {
-        var end = now + maxDuration + (1 * batchDelay);
-        var start = end - batch.weakenAfterHackJob.runtime;
-        batch.weakenAfterHackJob.runtimeEnd = end;
-        batch.weakenAfterHackJob.runtimeStart = start;
-    }
-
-    console.log("setRuntimes | batch:");
-    console.log(batch);
-
-    /*
-    ns.tprint("setRuntimes for now = "+formatDate(now));
-    if (batch.hackJob != undefined) ns.tprint("Hack: "+formatDate(batch.hackJob?.runtimeStart)+" - "+formatDate(batch.hackJob?.runtimeEnd));
-    if (batch.weakenAfterGrowJob != undefined) ns.tprint("Weaken: "+formatDate(batch.weakenAfterGrowJob.runtimeStart)+" - "+formatDate(batch.weakenAfterGrowJob.runtimeEnd));
-    if (batch.growJob != undefined) ns.tprint("Grow: "+formatDate(batch.growJob.runtimeStart)+" - "+formatDate(batch.growJob.runtimeEnd));
-    if (batch.weakenAfterHackJob != undefined) ns.tprint("Weaken: "+formatDate(batch.weakenAfterHackJob.runtimeStart)+" - "+formatDate(batch.weakenAfterHackJob.runtimeEnd));
-    */
 }

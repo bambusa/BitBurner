@@ -69,3 +69,60 @@ function createWeakenToMinJob(serverInfo) {
     serverInfo.predictedSecurity -= serverInfo.weakenAmount * weakenThreads;
     return tjob;
 }
+
+/** 
+ * @param {JobBatch} batch 
+ */
+function setDurationAndOffset(batch) {
+    if (batch?.growJob?.runtimeStart != undefined) {
+        return;
+    }
+
+    var durations = [batch.hackJob?.runtime, batch.weakenAfterHackJob?.runtime, batch.growJob?.runtime, batch.weakenAfterGrowJob?.runtime];
+    var maxDuration = getMaxValue(durations);
+    batch.duration = maxDuration + (8 * batchDelay);
+
+    if (batch.hackJob != undefined) {
+        var end = maxDuration + (8 * batchDelay);
+        var start = end - batch.hackJob.runtime - (1 * batchDelay);
+        batch.hackJob.startOffset = start;
+    }
+
+    if (batch.weakenAfterGrowJob != undefined) {
+        var end = maxDuration + (6 * batchDelay);
+        var start = end - batch.weakenAfterGrowJob.runtime - (1 * batchDelay);
+        batch.weakenAfterGrowJob.startOffset = start;
+    }
+
+    if (batch.growJob != undefined) {
+        var end = maxDuration + (4 * batchDelay);
+        var start = end - batch.growJob.runtime - (1 * batchDelay);
+        batch.growJob.startOffset = start;
+    }
+
+    if (batch.weakenAfterHackJob != undefined) {
+        var end = maxDuration + (2 * batchDelay);
+        var start = end - batch.weakenAfterHackJob.runtime - (1 * batchDelay);
+        batch.weakenAfterHackJob.startOffset = start;
+    }
+
+    console.log("setRuntimes | batch:");
+    console.log(batch);
+
+    /*
+    ns.tprint("setRuntimes for now = "+formatDate(now));
+    if (batch.hackJob != undefined) ns.tprint("Hack: "+formatDate(batch.hackJob?.runtimeStart)+" - "+formatDate(batch.hackJob?.runtimeEnd));
+    if (batch.weakenAfterGrowJob != undefined) ns.tprint("Weaken: "+formatDate(batch.weakenAfterGrowJob.runtimeStart)+" - "+formatDate(batch.weakenAfterGrowJob.runtimeEnd));
+    if (batch.growJob != undefined) ns.tprint("Grow: "+formatDate(batch.growJob.runtimeStart)+" - "+formatDate(batch.growJob.runtimeEnd));
+    if (batch.weakenAfterHackJob != undefined) ns.tprint("Weaken: "+formatDate(batch.weakenAfterHackJob.runtimeStart)+" - "+formatDate(batch.weakenAfterHackJob.runtimeEnd));
+    */
+}
+
+function setRuntimes(batch) {
+    if (batch.batchStart != undefined)
+        batch.batchStart = [Date.now()];
+    batch.hackJob?.runtimeStart = batch.batchStart[0] + batch.hackJob?.startOffset;
+    batch.weakenAfterHackJob?.runtimeStart = batch.batchStart[0] + batch.weakenAfterHackJob?.startOffset;
+    batch.growJob?.runtimeStart = batch.batchStart[0] + batch.growJob?.startOffset;
+    batch.weakenAfterGrowJob?.runtimeStart = batch.batchStart[0] + batch.weakenAfterGrowJob?.startOffset;
+}

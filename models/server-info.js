@@ -1,11 +1,14 @@
 export class ServerInfo {
     /** @param {import("..").Server} server */
-    constructor(server) {
+    constructor(server, serverType) {
         this.server = server;
+        this.serverType = serverType;
     }
 
     /** @type{import("..").Server} */
     server;
+    /** @type{string} */
+    serverType;
     /** @type{boolean} */
     serverAtMinSecurity;
     /** @type{boolean} */

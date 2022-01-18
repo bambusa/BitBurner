@@ -5,6 +5,8 @@ export class JobBatch {
     }
     /** @type{string} */
     target;
+    /** @type{number} */
+    duration;
     /** @type{Job} */
     hackJob;
     /** @type{Job} */
@@ -15,4 +17,6 @@ export class JobBatch {
     weakenAfterGrowJob;
     /** @type{number[]} */
     jobsRunsUntil;
+    /** @type{number[]} */
+    batchStart;
 };
