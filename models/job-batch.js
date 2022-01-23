@@ -2,6 +2,8 @@ export class JobBatch {
     /** @param{string} target hostname of target */
     constructor(target) {
         this.target = target;
+        this.batchStart = [];
+        this.jobsRunsUntil = [];
     }
     /** @type{string} */
     target;

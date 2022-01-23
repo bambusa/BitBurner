@@ -16,8 +16,7 @@ import {
     setRuntimes
 } from "libs/batch-lib";
 import {
-    sortFirstColumn,
-    getMaxValue
+    sortFirstColumn
 } from "libs/helper-lib.js";
 import {
     scripts
@@ -26,9 +25,6 @@ import {
 var hackScriptRam;
 var weakenScriptRam;
 var growScriptRam;
-var batchDelay = 2000;
-var batches = {};
-var availableServers = {};
 
 /** 
  * @param {import(".").NS} ns 
@@ -37,11 +33,10 @@ export async function main(ns) {
     var loop = ns.args[0] ?? true;
     var hackedServers = {};
     var batches = {};
-    var hostnamesByPriority = [];
     var misc = {};
     var purchasedServers = {};
 
-    await executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, hostnamesByPriority, misc);
+    await executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, misc);
 
     //var batch = createBatch(ns, "n00dles");
     //setRuntimes(ns, batch);
@@ -52,7 +47,7 @@ export async function main(ns) {
  * @param {boolean} loop
  * @param {import(".").NS} ns 
  */
-async function executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, hostnamesByPriority, misc) {
+async function executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, misc) {
     console.log("executeNsFunctions");
     if (weakenScriptRam == undefined) {
         weakenScriptRam = ns.getScriptRam(scripts[0])
@@ -67,70 +62,47 @@ async function executeNsFunctions(loop, ns, hackedServers, purchasedServers, bat
     while (true) {
         var player = ns.getPlayer();
         updateHackedServers(ns, hackedServers, player);
-        updatePurchasedServers(ns, purchasedServers);
+        await updatePurchasedServers(ns, purchasedServers);
         misc.formulasExists = ns.fileExists("Formulas.exe");
-        updateBatches(hackedServers, batches);
-        priotizeBatches(hackedServers, batches, hostnamesByPriority);
-        assignBatches(ns, hackedServers, purchasedServers, hostnamesByPriority, batches);
+        await updateBatches(hackedServers, batches);
+        await priotizeBatches(hackedServers, batches, misc);
+        await assignBatches(ns, hackedServers, purchasedServers, misc.hostnamesByPriority, batches);
 
         if (!loop) break;
         await ns.sleep(10000);
     }
 }
 
-function assignBatches(ns, hackedServers, hostnamesByPriority, batches) {
-    var currentBatch = hostnamesByPriority[0];
-    if (currentBatch == undefined) {
-        console.log("no batches to assign");
-    }
+async function assignBatches(ns, hackedServers, purchasedServers, hostnamesByPriority, batches) {
+    await assignToFreeServers(purchasedServers, hostnamesByPriority, batches, ns);
+    await assignToFreeServers(hackedServers, hostnamesByPriority, batches, ns);
+}
 
-    for (var hostname in purchasedServers.concat(hackedServers)) {
+async function assignToFreeServers(servers, hostnamesByPriority, batches, ns) {
+    for (var hostname in servers) {
         /** @type{ServerInfo} */
-        var serverInfo = purchasedServers[hostname] ?? hackedServers[hostname];
+        var serverInfo = servers[hostname];
 
         if (serverInfo.freeRam >= hackScriptRam) {
-
             for (var targetname of hostnamesByPriority) {
                 /** @type{JobBatch} */
                 var batch = batches[targetname];
                 if (batch.batchStart == undefined || batch.batchStart.length == 0) {
                     setRuntimes(batch);
-                    runJobs(ns, batch, serverInfo);
                 }
+                await runJobs(ns, batch, serverInfo);
             }
         } else {
             console.log("not enough ram available: " + serverInfo.freeRam);
-            console.log(serverInfo);
+            //console.log(serverInfo);
         }
     }
-}
-
-function getJobWithLowestOffset(batch) {
-    var highestOffset = 0;
-    var jobWithHighestOffset;
-    if (batch.hackJob?.startOffset > highestOffset) {
-        highestOffset = batch.hackJob.startOffset;
-        jobWithHighestOffset = batch.hackJob;
-    }
-    if (batch.weakenAfterHackJob?.startOffset > highestOffset) {
-        highestOffset = batch.weakenAfterHackJob.startOffset;
-        jobWithHighestOffset = batch.weakenAfterHackJob;
-    }
-    if (batch.growJob?.startOffset > highestOffset) {
-        highestOffset = batch.growJob.startOffset;
-        jobWithHighestOffset = batch.growJob;
-    }
-    if (batch.weakenAfterGrowJob?.startOffset > highestOffset) {
-        highestOffset = batch.weakenAfterGrowJob.startOffset;
-        jobWithHighestOffset = batch.weakenAfterGrowJob;
-    }
-    return jobWithHighestOffset;
 }
 
 /** 
  * @param {import("index").NS} ns
  */
-function updatePurchasedServers(ns, purchasedServers) {
+async function updatePurchasedServers(ns, purchasedServers) {
     var servers = ns.getPurchasedServers();
     for (var serverName of servers) {
         var server = ns.getServer(serverName);
@@ -144,7 +116,7 @@ function updatePurchasedServers(ns, purchasedServers) {
  * @param {import("index").NS} ns
  * @param {import("index").Player} player
  */
-function updateHackedServers(ns, hackedServers, player) {
+async function updateHackedServers(ns, hackedServers, player) {
     var servers = findHackedServers(ns, "home", "home");
     for (var serverName of servers) {
         var server = ns.getServer(serverName);
@@ -191,25 +163,34 @@ async function updateBatches(hackedServers, batches) {
             var batch = createBatch(serverInfo);
             setDurationAndOffset(batch);
             batches[hackedServer] = batch;
+
+            console.log("updateBatches | updated batch for "+hackedServer+" | batches:");
+            console.log(batches);
         }
     }
-
-    console.log("updateBatches | batches:");
-    console.log(batches);
 }
 
-async function priotizeBatches(hackedServers, batches, hostnamesByPriority) {
+/**
+ * 
+ * @param {*} hackedServers 
+ * @param {*} batches 
+ * @param {string[]} hostnamesByPriority 
+ */
+async function priotizeBatches(hackedServers, batches, misc) {
     var moneyHostnameDictionary = [];
+    misc.hostnamesByPriority = [];
+    moneyHostnameDictionary = [];
 
     // Priotize batch preparation
     for (var hostname in hackedServers) {
         /** @type{ServerInfo} */
         var serverInfo = hackedServers[hostname];
         if (batches[hostname] != undefined && serverInfo.batchMoneyPerSecond == undefined) {
-            hostnamesByPriority.push(hostname);
+            //console.log("push to hostnamesByPriority: "+hostname)
+            misc.hostnamesByPriority.push(hostname);
         }
     }
-    console.log("Priotized preparation for " + hostnamesByPriority.length + " servers");
+    //console.log("Priotized preparation for " + hostnamesByPriority.length + " servers");
 
     // Prepare money per second dictionary
     for (var hostname in hackedServers) {
@@ -224,15 +205,15 @@ async function priotizeBatches(hackedServers, batches, hostnamesByPriority) {
     moneyHostnameDictionary = moneyHostnameDictionary.sort(sortFirstColumn).reverse();
     for (var moneyHostname of moneyHostnameDictionary) {
         if (serverInfo.batchMoneyPerSecond != undefined) {
-            hostnamesByPriority.push(moneyHostname[1]);
+            misc.hostnamesByPriority.push(moneyHostname[1]);
         }
     }
     if (moneyHostnameDictionary[0] != undefined && moneyHostnameDictionary[0][0] != undefined) {
-        console.log("Priotized hacking " + moneyHostnameDictionary[0][1] + " for " + moneyHostnameDictionary[0][0] + " $ per second (returns " + hostnamesByPriority[0] + ")");
+        console.log("Priotized hacking " + moneyHostnameDictionary[0][1] + " for " + moneyHostnameDictionary[0][0] + " $ per second (returns " + misc.hostnamesByPriority[0] + ")");
     }
 
-    console.log("priotizeBatches | hostnamesByPriority:");
-    console.log(hostnamesByPriority);
+    //console.log("priotizeBatches | hostnamesByPriority:");
+    //console.log(misc.hostnamesByPriority);
 }
 
 function sleep(ms) {
@@ -245,41 +226,39 @@ function sleep(ms) {
  * @param {ServerInfo} serverInfo
  */
 async function runJobs(ns, batch, serverInfo) {
-    var hostname = serverInfo.server.hostname;
-    execJob(ns, batch.hackJob, hostname)
-    execJob(ns, batch.weakenAfterHackJob, hostname)
-    execJob(ns, batch.growJob, hostname)
-    execJob(ns, batch.weakenAfterGrowJob, hostname)
+    execJob(ns, batch.hackJob, serverInfo)
+    execJob(ns, batch.weakenAfterHackJob, serverInfo)
+    execJob(ns, batch.growJob, serverInfo)
+    execJob(ns, batch.weakenAfterGrowJob, serverInfo)
 }
 
-/** 
- * @param {import(".").NS} ns
- * @param {Date} now
+/**
+ * 
+ * @param {import("index").NS} ns 
  * @param {Job} job 
+ * @param {ServerInfo} serverInfo 
+ * @returns {boolean}
  */
-async function execJob(ns, job, hostname) {
-    if (job != undefined && job.threads > 0) {
-        while (!job.jobStarted) {
-            if (Date.now() >= job.runtimeStart) {
-                var threadsAvailable = Math.round(serverInfo.freeRam / hackScriptRam);
-                var assignThreads = threadsAvailable < job.threads ? threadsAvailable : job.threads;
-                if (assignThreads != job.threads) {
-                    console.log("Reduced " + job + " from " + job.threads + " to " + assignThreads + " threads");
-                    job.threads -= assignThreads;
-                }
-
-                var pid = ns.exec(job.scriptname, hostname, assignThreads, job.target);
-                if (pid > 0) {
-                    job.jobStarted = true;
-                    //if (threadsAvailable != undefined) job.threads -= threadsAvailable;
-                    console.log("Started " + job + " with " + (Date.now() - job.runtimeStart) + " ms delay");
-                } else {
-                    console.log("Failed to start " + job);
-                    return false;
-                }
+async function execJob(ns, job, serverInfo) {
+    if (job != undefined && job.threads > 0 && !job.jobStarted) {
+        if (Date.now() >= job.runtimeStart) {
+            var threadsAvailable = Math.round(serverInfo.freeRam / hackScriptRam);
+            var assignThreads = threadsAvailable < job.threads ? threadsAvailable : job.threads;
+            if (assignThreads != job.threads) {
+                console.log("Reduced " + job + " from " + job.threads + " to " + assignThreads + " threads");
+                job.threads -= assignThreads;
             }
 
-            await sleep(1000);
+            console.log("exec "+job.scriptname+" on "+ serverInfo.server.hostname+" with "+ assignThreads+" threads and target "+ job.target)
+            var pid = ns.exec(job.scriptname, serverInfo.server.hostname, assignThreads, job.target);
+            if (pid > 0) {
+                job.jobStarted = true;
+                //if (threadsAvailable != undefined) job.threads -= threadsAvailable;
+                console.log("Started " + job + " with " + (Date.now() - job.runtimeStart) + " ms delay");
+            } else {
+                console.log("Failed to start " + job);
+                return false;
+            }
         }
     }
     return true;

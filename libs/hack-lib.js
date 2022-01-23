@@ -1,4 +1,6 @@
-import {deployScriptTo} from "libs/deploy-lib"
+import {
+    deployScriptTo
+} from "libs/deploy-lib"
 
 export const portBusters = ['BruteSSH.exe', 'FTPCrack.exe', 'relaySMTP.exe', 'HTTPWorm.exe', 'SQLInject.exe'];
 
@@ -64,12 +66,11 @@ export async function tryRootServer(ns, hostname) {
                 ns.alert("Gained root access to fulcrumassets > Need to install backdoor manually");
             }*/
 
-            var scriptArray = [scriptsPath+scripts[0], scriptsPath+scripts[1], scriptsPath+scripts[2]]
+            var scriptArray = [scriptsPath + scripts[0], scriptsPath + scripts[1], scriptsPath + scripts[2]]
             await deployScriptTo(ns, scriptArray, "home", hostname);
             return true;
         }
-    }
-    else {
+    } else {
         //ns.tprintf("- Could not obtain root access to %s", hostname);
     }
 

@@ -14,6 +14,8 @@ import {
     JobBatch
 } from "models/job-batch.js";
 
+var batchDelay = 2000;
+
 /** 
  * @param {ServerInfo} serverInfo
  * @returns {JobBatch}
@@ -21,7 +23,7 @@ import {
 export function createBatch(serverInfo) {
     var server = serverInfo.server;
     var batch = new JobBatch(server.hostname);
-    console.log(server.hostname+": Current security: " + server.hackDifficulty + " min security: " + server.minDifficulty + " current money: " + server.moneyAvailable + " $ max money: " + server.moneyMax + " $");
+    console.log(server.hostname + ": Current security: " + server.hackDifficulty + " min security: " + server.minDifficulty + " current money: " + server.moneyAvailable + " $ max money: " + server.moneyMax + " $");
 
     if (serverInfo.serverAtMinSecurity && serverInfo.serverAtMaxMoney) {
         serverInfo.predictedSecurity = serverInfo.server.minDifficulty;
@@ -73,8 +75,8 @@ function createWeakenToMinJob(serverInfo) {
 /** 
  * @param {JobBatch} batch 
  */
-function setDurationAndOffset(batch) {
-    if (batch?.growJob?.runtimeStart != undefined) {
+export function setDurationAndOffset(batch) {
+    if (batch != undefined && batch.growJob != undefined && batch.growJob.runtimeStart != undefined) {
         return;
     }
 
@@ -106,7 +108,7 @@ function setDurationAndOffset(batch) {
         batch.weakenAfterHackJob.startOffset = start;
     }
 
-    console.log("setRuntimes | batch:");
+    console.log("setDurationAndOffset | batch:");
     console.log(batch);
 
     /*
@@ -118,11 +120,24 @@ function setDurationAndOffset(batch) {
     */
 }
 
-function setRuntimes(batch) {
-    if (batch.batchStart != undefined)
+export function setRuntimes(batch) {
+    if (batch.batchStart != undefined && batch.batchStart.length == 0) {
         batch.batchStart = [Date.now()];
-    batch.hackJob?.runtimeStart = batch.batchStart[0] + batch.hackJob?.startOffset;
-    batch.weakenAfterHackJob?.runtimeStart = batch.batchStart[0] + batch.weakenAfterHackJob?.startOffset;
-    batch.growJob?.runtimeStart = batch.batchStart[0] + batch.growJob?.startOffset;
-    batch.weakenAfterGrowJob?.runtimeStart = batch.batchStart[0] + batch.weakenAfterGrowJob?.startOffset;
+    }
+    if (batch.hackJob != undefined) {
+        batch.hackJob.runtimeStart = batch.batchStart[0] + batch.hackJob?.startOffset;
+    }
+    if (batch.weakenAfterHackJob != undefined) {
+        console.log(batch);
+        batch.weakenAfterHackJob.runtimeStart = batch.batchStart[0] + batch.weakenAfterHackJob?.startOffset;
+    }
+    if (batch.growJob) {
+        batch.growJob.runtimeStart = batch.batchStart[0] + batch.growJob?.startOffset;
+    }
+    if (batch.weakenAfterGrowJob) {
+        batch.weakenAfterGrowJob.runtimeStart = batch.batchStart[0] + batch.weakenAfterGrowJob?.startOffset;
+    }
+
+    console.log("setRuntimes | batch:");
+    console.log(batch);
 }

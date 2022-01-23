@@ -1,3 +1,5 @@
+import { formatDate } from "libs/helper-lib";
+
 export class Job {
     constructor(scriptname, threads, target, runtime, runtimeStart, runtimeEnd, hackAmount) {
         this.scriptname = scriptname;

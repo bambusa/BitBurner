@@ -1,12 +1,10 @@
-export const scripts = ["/scripts/weaken.js", "/scripts/grow.js", "/scripts/hack.js"];
+export const scripts = ["weaken.js", "grow.js", "hack.js"];
 
 /** 
  * @param {import("..").NS} ns 
  */
 export async function main(ns) {
-    console.log("main1");
     var hostname = ns.args[0];
-    console.log("main2");
     await deployScriptTo(ns, scripts, "home", hostname);
 }
 
@@ -14,7 +12,7 @@ export async function main(ns) {
 export async function calculateMaxThreads(ns, hostname, scriptname) {
     let threads = 0;
     let memoryNeeded = 0;
-    let memoryAvailable = await ns.getServerMaxRam(hostname);
+    let memoryAvailable = ns.getServerMaxRam(hostname);
     while (memoryNeeded < memoryAvailable) {
         let scriptMemory = ns.getScriptRam(scriptname);
         memoryNeeded = scriptMemory * (threads + 1);
