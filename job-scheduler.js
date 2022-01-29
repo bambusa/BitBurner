@@ -36,64 +36,135 @@ export async function main(ns) {
     var misc = {};
     var purchasedServers = {};
 
-    await executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, misc);
+    initScriptRam(ns);
+    while (true) {
+        var started = Date.now();
+        updateServerInfo(ns, hackedServers, purchasedServers);
+        updateBatches(misc, ns, hackedServers, batches);
+        runBatches(ns, hackedServers, purchasedServers, batches, misc);
+        if (!loop) break;
 
-    //var batch = createBatch(ns, "n00dles");
-    //setRuntimes(ns, batch);
-    //await runJobs(ns, batch);
+        var ended = Date.now();
+        console.log("Batch loop took "+(ended-started)+" ms");
+        await ns.sleep(10000)
+    }
+}
+
+function initScriptRam(ns) {
+    if (weakenScriptRam == undefined) {
+        weakenScriptRam = ns.getScriptRam(scripts[0]);
+    }
+    if (growScriptRam == undefined) {
+        growScriptRam = ns.getScriptRam(scripts[1]);
+    }
+    if (hackScriptRam == undefined) {
+        hackScriptRam = ns.getScriptRam(scripts[2]);
+    }
+}
+
+function updateServerInfo(ns, hackedServers, purchasedServers) {
+    //console.log("updateServerInfo");
+    var player = ns.getPlayer();
+    updateHackedServers(ns, hackedServers, player);
+    updatePurchasedServers(ns, purchasedServers);
+}
+
+/** 
+ * @param {import("index").NS} ns
+ * @param {import("index").Player} player
+ */
+async function updateHackedServers(ns, hackedServers, player) {
+    var updated = false;
+    var servers = findHackedServers(ns, "home", "home");
+    for (var serverName of servers) {
+        var server = ns.getServer(serverName);
+
+        /** @type{ServerInfo} */
+        var serverInfo = hackedServers[serverName] ?? new ServerInfo(server, "hacked");
+        if (player.hacking_exp != serverInfo.createdAtHackExp) {
+            updated = true;
+            serverInfo.createdAtHackExp = player.hacking_exp;
+            serverInfo.serverAtMinSecurity = server.hackDifficulty == server.minDifficulty;
+            serverInfo.serverAtMaxMoney = server.moneyMax == server.moneyAvailable;
+            serverInfo.freeRam = server.maxRam - server.ramUsed;
+
+            // Grow Info
+            var neededGrowToMax = server.moneyMax / server.moneyAvailable;
+            serverInfo.growThreadsToMax = Math.ceil(ns.growthAnalyze(server.hostname, neededGrowToMax));
+            serverInfo.growThreadsToDouble = Math.round(ns.growthAnalyze(server.hostname, 2));
+            serverInfo.growTime = ns.getGrowTime(server.hostname);
+            serverInfo.growSecurityRise = ns.growthAnalyzeSecurity(serverInfo.growThreadsToMax);
+
+            // Weaken Info
+            serverInfo.weakenAmount = ns.weakenAnalyze(1);
+            serverInfo.weakenTime = ns.getWeakenTime(server.hostname);
+            serverInfo.updateHackedServersAt = Date.now();
+
+            if (serverInfo.serverAtMinSecurity) {
+                // Hack Info
+                serverInfo.hackTime = ns.getHackTime(server.hostname);
+                serverInfo.hackSecurityRise = ns.hackAnalyzeSecurity(1);
+                serverInfo.hackAmount = ns.hackAnalyze(server.hostname);
+            }
+            hackedServers[serverName] = serverInfo;
+            
+        }
+        else {
+            serverInfo.freeRam = server.maxRam - server.ramUsed;
+            hackedServers[serverName] = serverInfo;
+        }
+    }
+
+    if (updated) {
+        console.log("updateHackedServers | hackedServers:");
+        console.log(hackedServers);
+    }
+}
+
+function updateBatches(misc, ns, hackedServers, batches) {
+    //console.log("updateBatches");
+    misc.formulasExists = ns.fileExists("Formulas.exe");
+    createBatches(hackedServers, batches);
+    priotizeBatches(hackedServers, batches, misc);
 }
 
 /** 
  * @param {boolean} loop
  * @param {import(".").NS} ns 
  */
-async function executeNsFunctions(loop, ns, hackedServers, purchasedServers, batches, misc) {
-    console.log("executeNsFunctions");
-    if (weakenScriptRam == undefined) {
-        weakenScriptRam = ns.getScriptRam(scripts[0])
-    }
-    if (growScriptRam == undefined) {
-        growScriptRam = ns.getScriptRam(scripts[1])
-    }
-    if (hackScriptRam == undefined) {
-        hackScriptRam = ns.getScriptRam(scripts[2]);
-    }
-
-    while (true) {
-        var player = ns.getPlayer();
-        updateHackedServers(ns, hackedServers, player);
-        await updatePurchasedServers(ns, purchasedServers);
-        misc.formulasExists = ns.fileExists("Formulas.exe");
-        await updateBatches(hackedServers, batches);
-        await priotizeBatches(hackedServers, batches, misc);
-        await assignBatches(ns, hackedServers, purchasedServers, misc.hostnamesByPriority, batches);
-
-        if (!loop) break;
-        await ns.sleep(10000);
-    }
+function runBatches(ns, hackedServers, purchasedServers, batches, misc) {
+    //console.log("runBatches");
+    assignBatches(ns, hackedServers, purchasedServers, misc.hostnamesByPriority, batches);
 }
 
-async function assignBatches(ns, hackedServers, purchasedServers, hostnamesByPriority, batches) {
-    await assignToFreeServers(purchasedServers, hostnamesByPriority, batches, ns);
-    await assignToFreeServers(hackedServers, hostnamesByPriority, batches, ns);
+function assignBatches(ns, hackedServers, purchasedServers, hostnamesByPriority, batches) {
+    assignToFreeServers(purchasedServers, hostnamesByPriority, batches, ns);
+    assignToFreeServers(hackedServers, hostnamesByPriority, batches, ns);
 }
 
-async function assignToFreeServers(servers, hostnamesByPriority, batches, ns) {
+function assignToFreeServers(servers, hostnamesByPriority, batches, ns) {
     for (var hostname in servers) {
+        //console.log("assignToFreeServers | check server " + hostname);
         /** @type{ServerInfo} */
         var serverInfo = servers[hostname];
 
-        if (serverInfo.freeRam >= hackScriptRam) {
+        if (serverInfo.freeRam >= weakenScriptRam) {
             for (var targetname of hostnamesByPriority) {
+                //console.log("assignToFreeServers | check target " + targetname);
                 /** @type{JobBatch} */
                 var batch = batches[targetname];
+                if (batch != undefined) {
                 if (batch.batchStart == undefined || batch.batchStart.length == 0) {
                     setRuntimes(batch);
                 }
-                await runJobs(ns, batch, serverInfo);
+                var ranAll = runJobs(ns, batch, serverInfo);
+                if (ranAll) {
+                    delete batches[targetname];
+                }
+            }
             }
         } else {
-            console.log("not enough ram available: " + serverInfo.freeRam);
+            //console.log("not enough ram available: " + serverInfo.freeRam);
             //console.log(serverInfo);
         }
     }
@@ -112,61 +183,23 @@ async function updatePurchasedServers(ns, purchasedServers) {
     }
 }
 
-/** 
- * @param {import("index").NS} ns
- * @param {import("index").Player} player
- */
-async function updateHackedServers(ns, hackedServers, player) {
-    var servers = findHackedServers(ns, "home", "home");
-    for (var serverName of servers) {
-        var server = ns.getServer(serverName);
-
-        /** @type{ServerInfo} */
-        var serverInfo = hackedServers[serverName] ?? new ServerInfo(server, "hacked");
-        if (player.hacking_exp != serverInfo.createdAtHackExp) {
-            serverInfo.createdAtHackExp = player.hacking_exp;
-            serverInfo.serverAtMinSecurity = server.hackDifficulty == server.minDifficulty;
-            serverInfo.serverAtMaxMoney = server.moneyMax == server.moneyAvailable;
-            serverInfo.freeRam = server.maxRam - server.ramUsed;
-
-            // Grow Info
-            var neededGrowToMax = server.moneyMax / server.moneyAvailable;
-            serverInfo.growThreadsToMax = Math.round(ns.growthAnalyze(server.hostname, neededGrowToMax));
-            serverInfo.growThreadsToDouble = Math.round(ns.growthAnalyze(server.hostname, 2));
-            serverInfo.growTime = ns.getGrowTime(server.hostname);
-            serverInfo.growSecurityRise = ns.growthAnalyzeSecurity(serverInfo.growThreadsToMax);
-
-            // Weaken Info
-            serverInfo.weakenAmount = ns.weakenAnalyze(1);
-            serverInfo.weakenTime = ns.getWeakenTime(server.hostname);
-            serverInfo.updateHackedServersAt = Date.now();
-
-            if (serverInfo.serverAtMinSecurity) {
-                // Hack Info
-                serverInfo.hackTime = ns.getHackTime(server.hostname);
-                serverInfo.hackSecurityRise = ns.hackAnalyzeSecurity(1);
-                serverInfo.hackAmount = ns.hackAnalyze(server.hostname);
-            }
-            hackedServers[serverName] = serverInfo;
-        }
-    }
-
-    console.log("updateHackedServers | hackedServers:");
-    console.log(hackedServers);
-}
-
-async function updateBatches(hackedServers, batches) {
+async function createBatches(hackedServers, batches) {
+    var updated = false;
     for (var hackedServer in hackedServers) {
+        //console.log(batches[hackedServer]);
         if (batches[hackedServer] == undefined) {
             /** @type{ServerInfo} */
             var serverInfo = hackedServers[hackedServer];
             var batch = createBatch(serverInfo);
             setDurationAndOffset(batch);
             batches[hackedServer] = batch;
-
-            console.log("updateBatches | updated batch for "+hackedServer+" | batches:");
-            console.log(batches);
+            updated = true;
         }
+    }
+
+    if (updated) {
+        console.log("createBatches | batches:");
+        console.log(batches);
     }
 }
 
@@ -188,6 +221,7 @@ async function priotizeBatches(hackedServers, batches, misc) {
         if (batches[hostname] != undefined && serverInfo.batchMoneyPerSecond == undefined) {
             //console.log("push to hostnamesByPriority: "+hostname)
             misc.hostnamesByPriority.push(hostname);
+            break;
         }
     }
     //console.log("Priotized preparation for " + hostnamesByPriority.length + " servers");
@@ -225,41 +259,56 @@ function sleep(ms) {
  * @param {JobBatch} batch 
  * @param {ServerInfo} serverInfo
  */
-async function runJobs(ns, batch, serverInfo) {
-    execJob(ns, batch.hackJob, serverInfo)
-    execJob(ns, batch.weakenAfterHackJob, serverInfo)
-    execJob(ns, batch.growJob, serverInfo)
-    execJob(ns, batch.weakenAfterGrowJob, serverInfo)
+function runJobs(ns, batch, serverInfo) {
+    //console.log("runJobs " + serverInfo.server.hostname);
+    execJob(ns, batch.weakenAfterHackJob, serverInfo);
+    if (batch.weakenAfterHackJob == undefined || batch.weakenAfterHackJob?.threads == 0) {
+        batch.weakenAfterHackJob = undefined;
+        execJob(ns, batch.weakenAfterGrowJob, serverInfo);
+        if (batch.weakenAfterGrowJob == undefined || batch.weakenAfterGrowJob?.threads == 0) {
+            batch.weakenAfterGrowJob = undefined;
+            execJob(ns, batch.growJob, serverInfo);
+            if (batch.growJob == undefined || batch.growJob?.threads == 0) {
+                batch.growJob = undefined;
+                execJob(ns, batch.hackJob, serverInfo);
+                if (batch.hackJob == undefined || batch.hackJob?.threads == 0) {
+                    batch.hackJob = undefined;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 /**
- * 
  * @param {import("index").NS} ns 
  * @param {Job} job 
  * @param {ServerInfo} serverInfo 
  * @returns {boolean}
  */
-async function execJob(ns, job, serverInfo) {
-    if (job != undefined && job.threads > 0 && !job.jobStarted) {
-        if (Date.now() >= job.runtimeStart) {
-            var threadsAvailable = Math.round(serverInfo.freeRam / hackScriptRam);
-            var assignThreads = threadsAvailable < job.threads ? threadsAvailable : job.threads;
-            if (assignThreads != job.threads) {
-                console.log("Reduced " + job + " from " + job.threads + " to " + assignThreads + " threads");
-                job.threads -= assignThreads;
-            }
+function execJob(ns, job, serverInfo) {
+    if (job != undefined && job.threads > 0 && Date.now() >= job.runtimeStart) {
+        //console.log("execJob " + job.scriptname + " @ " + serverInfo.server.hostname + " with " + serverInfo.freeRam + " GB free RAM");
 
-            console.log("exec "+job.scriptname+" on "+ serverInfo.server.hostname+" with "+ assignThreads+" threads and target "+ job.target)
-            var pid = ns.exec(job.scriptname, serverInfo.server.hostname, assignThreads, job.target);
-            if (pid > 0) {
-                job.jobStarted = true;
-                //if (threadsAvailable != undefined) job.threads -= threadsAvailable;
-                console.log("Started " + job + " with " + (Date.now() - job.runtimeStart) + " ms delay");
-            } else {
-                console.log("Failed to start " + job);
-                return false;
-            }
+        var scriptRam = hackScriptRam;
+        if (job.scriptname == scripts[0]) scriptRam = weakenScriptRam;
+        else if (job.scriptname == scripts[1]) scriptRam = growScriptRam;
+        var threadsAvailable = Math.floor(serverInfo.freeRam / scriptRam);
+        var assignThreads = threadsAvailable < job.threads ? threadsAvailable : job.threads;
+        if (assignThreads != job.threads) {
+            console.log("Reduced " + job + " to " + assignThreads + " threads");
+        }
+
+        var pid = ns.exec(job.scriptname, serverInfo.server.hostname, assignThreads, job.target, Date.now());
+        if (pid > 0) {
+            job.jobStarted = true;
+            job.threads -= assignThreads;
+            console.log("exec " + job.scriptname + " on " + serverInfo.server.hostname + " with " + assignThreads + " threads and target " + job.target + " with " + (Date.now() - job.runtimeStart) + " ms delay")
+            return true;
+        } else {
+            console.log("Failed " + job.scriptname + " on " + serverInfo.server.hostname + " with " + assignThreads + " threads and target " + job.target + " with " + (Date.now() - job.runtimeStart) + " ms delay")
         }
     }
-    return true;
+    return false;
 }

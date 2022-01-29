@@ -36,7 +36,7 @@ export function createBatch(serverInfo) {
     // Analyze money per second
     if (serverInfo.serverAtMinSecurity && serverInfo.serverAtMaxMoney) {
         serverInfo.fullBatchTime = getMaxValue([serverInfo.hackTime, serverInfo.weakenTime, serverInfo.growTime]);
-        serverInfo.batchMoneyPerSecond = Math.round((serverInfo.hackAmount / fullBatchTime) / 1000);
+        serverInfo.batchMoneyPerSecond = Math.round((serverInfo.hackAmount / serverInfo.fullBatchTime) / 1000);
     }
 
     return batch;
@@ -85,25 +85,26 @@ export function setDurationAndOffset(batch) {
     batch.duration = maxDuration + (8 * batchDelay);
 
     if (batch.hackJob != undefined) {
-        var end = maxDuration + (8 * batchDelay);
+        var end = maxDuration + (6 * batchDelay);
         var start = end - batch.hackJob.runtime - (1 * batchDelay);
         batch.hackJob.startOffset = start;
     }
 
     if (batch.weakenAfterGrowJob != undefined) {
-        var end = maxDuration + (6 * batchDelay);
+        var end = maxDuration + (4 * batchDelay);
         var start = end - batch.weakenAfterGrowJob.runtime - (1 * batchDelay);
         batch.weakenAfterGrowJob.startOffset = start;
     }
 
     if (batch.growJob != undefined) {
-        var end = maxDuration + (4 * batchDelay);
+        console.log("weakenAfterHackJob length: "+batch.weakenAfterHackJob?.length);
+        var end = maxDuration + (2 * batchDelay);
         var start = end - batch.growJob.runtime - (1 * batchDelay);
         batch.growJob.startOffset = start;
     }
 
     if (batch.weakenAfterHackJob != undefined) {
-        var end = maxDuration + (2 * batchDelay);
+        var end = maxDuration;
         var start = end - batch.weakenAfterHackJob.runtime - (1 * batchDelay);
         batch.weakenAfterHackJob.startOffset = start;
     }
@@ -128,7 +129,6 @@ export function setRuntimes(batch) {
         batch.hackJob.runtimeStart = batch.batchStart[0] + batch.hackJob?.startOffset;
     }
     if (batch.weakenAfterHackJob != undefined) {
-        console.log(batch);
         batch.weakenAfterHackJob.runtimeStart = batch.batchStart[0] + batch.weakenAfterHackJob?.startOffset;
     }
     if (batch.growJob) {
