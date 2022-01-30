@@ -21,6 +21,7 @@ import {
 import {
     scripts
 } from "libs/deploy-lib.js";
+import { progressLoop } from "libs/network-lib";
 
 var hackScriptRam;
 var weakenScriptRam;
@@ -39,14 +40,15 @@ export async function main(ns) {
     initScriptRam(ns);
     while (true) {
         var started = Date.now();
+        await progressLoop(ns);
         updateServerInfo(ns, hackedServers, purchasedServers, batches);
         updateBatches(misc, ns, hackedServers, batches);
         runBatches(ns, hackedServers, purchasedServers, batches, misc);
         if (!loop) break;
 
         var ended = Date.now();
-        console.log("Batch loop took " + (ended - started) + " ms");
-        await ns.sleep(10000)
+        //console.log("Batch loop took " + (ended - started) + " ms");
+        await ns.sleep(100);
     }
 }
 
@@ -73,7 +75,7 @@ function updateServerInfo(ns, hackedServers, purchasedServers, batches) {
     var player = ns.getPlayer();
     updateHackedServers(ns, hackedServers, player, batches);
     updatePurchasedServers(ns, purchasedServers);
-    console.log(hackedServers);
+    //console.log(hackedServers);
 }
 
 /** 
@@ -215,7 +217,7 @@ async function priotizeBatches(hackedServers, batches, misc) {
         }
     }
     if (moneyHostnameDictionary[0] != undefined && moneyHostnameDictionary[0][0] != undefined) {
-        console.log("Priotized hacking " + moneyHostnameDictionary[0][1] + " for " + moneyHostnameDictionary[0][0] + " $ per second (returns " + misc.hostnamesByPriority[0] + ")");
+        //console.log("Priotized hacking " + moneyHostnameDictionary[0][1] + " for " + moneyHostnameDictionary[0][0] + " $ per second (returns " + misc.hostnamesByPriority[0] + ")");
     }
     if (hostnameMemory.length > 0) {
         for (var hostname of hostnameMemory) {
@@ -310,7 +312,7 @@ function execJob(ns, job, serverInfo) {
         var threadsAvailable = Math.floor(serverInfo.freeRam / scriptRam);
         var assignThreads = threadsAvailable < job.threads ? threadsAvailable : job.threads;
         if (assignThreads != job.threads && assignThreads > 0) {
-            console.log("Reduced " + job + " to " + assignThreads + " threads");
+            //console.log("Reduced " + job + " to " + assignThreads + " threads");
         } else if (assignThreads == 0) {
             return false;
         }

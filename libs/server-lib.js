@@ -1,8 +1,19 @@
 import {
     tryRootServer
 } from "libs/hack-lib.js";
+import {
+    deployScriptTo,
+    scripts
+} from "libs/deploy-lib";
 
 const purchasedServerPrefix = "pserv";
+
+export async function main(ns) {
+    var servers = findHackedServers(ns, "home", "home");
+    for (var server of servers) {
+        await deployScriptTo(ns, scripts, "home", server);
+    }
+}
 
 /** @param {import("..").NS} ns
  * @param {string} home
@@ -77,11 +88,11 @@ export function tryPurchaseServer(ns, ram) {
             ns.tprintf("- Purchasing new %u GB server", ram);
             return ns.purchaseServer(purchasedServerPrefix, ram);
         } else {
-            console.log("-- Could not purchase server; Missing " + ns.nFormat(moneyAvailable - moneyNeeded, '0a') + " $ for sale price of " + ns.nFormat(moneyNeeded, '0a') + " $")
+            //console.log("-- Could not purchase server; Missing " + ns.nFormat(moneyAvailable - moneyNeeded, '0a') + " $ for sale price of " + ns.nFormat(moneyNeeded, '0a') + " $")
             //ns.tprint("-- Could not purchase server; Missing "+ns.nFormat(moneyAvailable - moneyNeeded, '0a')+" $ for sale price of "+ns.nFormat(moneyNeeded, '0a')+" $");
         }
     } else {
-        console.log("- Server limit reached");
+        //console.log("- Server limit reached");
         //ns.tprint("- Server limit reached");
     }
 }

@@ -5,7 +5,15 @@ export const scripts = ["weaken.js", "grow.js", "hack.js"];
  */
 export async function main(ns) {
     var hostname = ns.args[0];
+    if (hostname != undefined) {
     await deployScriptTo(ns, scripts, "home", hostname);
+    }
+    else {
+        var servers = findHackedServers(ns, "home", "home");
+        for (var server of servers) {
+            await deployScriptTo(ns, scripts, "home", server);
+        }
+    }
 }
 
 /** @param {import("..").NS} ns **/
@@ -35,6 +43,10 @@ export async function calculateMaxThreads(ns, hostname, scriptname) {
  * @param {boolean} overwrite
  */
 export async function deployScriptTo(ns, copyScripts, hostname, targetname, parameter, runScript, overwrite) {
+    if (overwrite == undefined) {
+        overwrite = true;
+    }
+
     if (copyScripts.length > 0) {
         if (overwrite != true && ns.scriptRunning(scriptname, hostname)) {
             console.log("-- %s is running already on %s", scriptname, hostname);

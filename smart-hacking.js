@@ -1,6 +1,6 @@
 import { findHackedServers } from "libs/server-lib.js";
 import { sortFirstColumn } from "libs/helper-lib.js";
-import { gameStateFile } from "smart-networking.js";
+import { gameStateFile } from "libs/network-lib.js";
 
 export const scripts = ["weaken.js", "grow.js", "hack.js"];
 

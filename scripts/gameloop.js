@@ -1,4 +1,4 @@
-import {gameStateFile} from "smart-networking.js";
+import {gameStateFile} from "libs/network-lib.js";
 import {foundContractsFile, doneContractsFile} from "contracts/coding-contracts.js";
 
 /** @param {import("..").NS} ns */
