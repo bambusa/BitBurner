@@ -17,26 +17,26 @@ import {
 var batchDelay = 2000;
 
 /** 
+ * @param {import("index").NS} ns
  * @param {ServerInfo} serverInfo
- * @returns {JobBatch}
  */
-export function createBatch(serverInfo) {
+export function createBatch(ns, serverInfo) {
     var server = serverInfo.server;
     var batch = new JobBatch(server.hostname);
-    console.log(server.hostname + ": Current security: " + server.hackDifficulty + " min security: " + server.minDifficulty + " current money: " + server.moneyAvailable + " $ max money: " + server.moneyMax + " $");
+    //console.log(server.hostname + ": Current security: " + server.hackDifficulty + " min security: " + server.minDifficulty + " current money: " + server.moneyAvailable + " $ max money: " + server.moneyMax + " $");
 
     if (serverInfo.serverAtMinSecurity && serverInfo.serverAtMaxMoney) {
         serverInfo.predictedSecurity = serverInfo.server.minDifficulty;
         batch.hackJob = createHackJob(serverInfo);
     }
     batch.weakenAfterHackJob = createWeakenToMinJob(serverInfo);
-    batch.growJob = createGrowToMaxJob(serverInfo);
+    batch.growJob = createGrowToMaxJob(ns, serverInfo);
     batch.weakenAfterGrowJob = createWeakenToMinJob(serverInfo);
 
     // Analyze money per second
     if (serverInfo.serverAtMinSecurity && serverInfo.serverAtMaxMoney) {
         serverInfo.fullBatchTime = getMaxValue([serverInfo.hackTime, serverInfo.weakenTime, serverInfo.growTime]);
-        serverInfo.batchMoneyPerSecond = Math.round((serverInfo.hackAmount / serverInfo.fullBatchTime) / 1000);
+        serverInfo.batchMoneyPerSecond = Math.round((serverInfo.hackAmount / serverInfo.fullBatchTime) * 1000);
     }
 
     return batch;
@@ -53,22 +53,27 @@ function createHackJob(serverInfo) {
 }
 
 /** 
+ * @param {import("index").NS} ns
  * @param {ServerInfo} serverInfo
  */
-function createGrowToMaxJob(serverInfo) {
-    var tjob = new Job(scripts[1], serverInfo.growThreadsToMax, serverInfo.server.hostname, serverInfo.growTime);
-    serverInfo.predictedSecurity += serverInfo.growSecurityRise * serverInfo.growThreadsToMax;
-    return tjob;
+function createGrowToMaxJob(ns, serverInfo) {
+    var neededGrowToMax = serverInfo.server.moneyMax / serverInfo.server.moneyAvailable;
+    if (neededGrowToMax >= 1) {
+        var growThreadsToMax = Math.ceil(ns.growthAnalyze(serverInfo.server.hostname, neededGrowToMax));
+        var tjob = new Job(scripts[1], growThreadsToMax, serverInfo.server.hostname, serverInfo.growTime);
+        serverInfo.predictedSecurity += serverInfo.growSecurityRise * growThreadsToMax;
+        return tjob;
+    }
 }
 
 /** 
  * @param {ServerInfo} serverInfo
  */
 function createWeakenToMinJob(serverInfo) {
-    var weakenNeeded = serverInfo.server.hackDifficulty - serverInfo.server.minDifficulty;
+    var weakenNeeded = serverInfo.predictedSecurity ?? serverInfo.server.hackDifficulty - serverInfo.server.minDifficulty;
     var weakenThreads = Math.ceil(weakenNeeded / serverInfo.weakenAmount);
     var tjob = new Job(scripts[0], weakenThreads, serverInfo.server.hostname, serverInfo.weakenTime);
-    serverInfo.predictedSecurity -= serverInfo.weakenAmount * weakenThreads;
+    serverInfo.predictedSecurity -= weakenNeeded;
     return tjob;
 }
 
@@ -82,35 +87,37 @@ export function setDurationAndOffset(batch) {
 
     var durations = [batch.hackJob?.runtime, batch.weakenAfterHackJob?.runtime, batch.growJob?.runtime, batch.weakenAfterGrowJob?.runtime];
     var maxDuration = getMaxValue(durations);
-    batch.duration = maxDuration + (8 * batchDelay);
-
-    if (batch.hackJob != undefined) {
-        var end = maxDuration + (6 * batchDelay);
-        var start = end - batch.hackJob.runtime - (1 * batchDelay);
-        batch.hackJob.startOffset = start;
-    }
-
-    if (batch.weakenAfterGrowJob != undefined) {
-        var end = maxDuration + (4 * batchDelay);
-        var start = end - batch.weakenAfterGrowJob.runtime - (1 * batchDelay);
-        batch.weakenAfterGrowJob.startOffset = start;
-    }
-
-    if (batch.growJob != undefined) {
-        console.log("weakenAfterHackJob length: "+batch.weakenAfterHackJob?.length);
-        var end = maxDuration + (2 * batchDelay);
-        var start = end - batch.growJob.runtime - (1 * batchDelay);
-        batch.growJob.startOffset = start;
-    }
+    var predecessors = 0;
 
     if (batch.weakenAfterHackJob != undefined) {
         var end = maxDuration;
         var start = end - batch.weakenAfterHackJob.runtime - (1 * batchDelay);
         batch.weakenAfterHackJob.startOffset = start;
+        predecessors++;
     }
 
-    console.log("setDurationAndOffset | batch:");
-    console.log(batch);
+    if (batch.growJob != undefined) {
+        var end = maxDuration + (predecessors * batchDelay);
+        var start = end - batch.growJob.runtime - batchDelay;
+        batch.growJob.startOffset = start;
+        predecessors++;
+    }
+
+    if (batch.weakenAfterGrowJob != undefined) {
+        var end = maxDuration + (predecessors * batchDelay);
+        var start = end - batch.weakenAfterGrowJob.runtime - batchDelay;
+        batch.weakenAfterGrowJob.startOffset = start;
+        predecessors
+    }
+
+    if (batch.hackJob != undefined) {
+        var end = maxDuration + (predecessors * batchDelay);
+        var start = end - batch.hackJob.runtime - batchDelay;
+        batch.hackJob.startOffset = start;
+    }
+
+    //console.log("setDurationAndOffset | batch:");
+    //console.log(batch);
 
     /*
     ns.tprint("setRuntimes for now = "+formatDate(now));
@@ -138,6 +145,6 @@ export function setRuntimes(batch) {
         batch.weakenAfterGrowJob.runtimeStart = batch.batchStart[0] + batch.weakenAfterGrowJob?.startOffset;
     }
 
-    console.log("setRuntimes | batch:");
-    console.log(batch);
+    //console.log("setRuntimes | batch:");
+    //console.log(batch);
 }
