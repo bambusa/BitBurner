@@ -9,8 +9,10 @@ import {
 	tryUpgradeNodes,
 	allNodesUpgraded
 } from "libs/node-lib.js";
-import { getNumberOfOwnedPortBusters } from "libs/hack-lib";
-import { executeInTerminal } from "libs/terminal-lib";
+
+// Comment import of getNumberOfOwnedPortBusters and executeInTerminal if home RAM is under 64 GB
+//import { getNumberOfOwnedPortBusters } from "libs/hack-lib";
+//import { executeInTerminal } from "libs/terminal-lib";
 
 export const gameStateFile = "game-state-level.txt";
 var gameStateLevel;
@@ -44,9 +46,13 @@ export async function getGameStateLevel(ns) {
 		level = 4;
 		await ns.write(gameStateFile, level, "w");
 	} else if (level == 4 && getNumberOfOwnedPortBusters(ns) == 5) {
-		ns.tprintf("!!! Progressed to Game State Level 5: All port busters bought, start upgrading purchased servers");
-		level = 5;
-		await ns.write(gameStateFile, level, "w");
+		if (getNumberOfOwnedPortBusters != undefined && getNumberOfOwnedPortBusters(ns) == 5) {
+			ns.tprintf("!!! Progressed to Game State Level 5: All port busters bought, start upgrading purchased servers");
+			level = 5;
+			await ns.write(gameStateFile, level, "w");
+		} else {
+			ns.tprint("Upgrade home RAM and uncomment imports in libs\network-lib.js");
+		}
 	} else if (level == 5 && ns.getPlayer().money >= 500000000) {
 		ns.tprintf("!!! Progressed to Game State Level 6: 500m $");
 		level = 6;
@@ -86,24 +92,19 @@ export async function progressLoop(ns) {
 	} else if (gameStateLevel == 4) {
 		if (!ns.scan("home").includes("darkweb") && ns.getPlayer().money >= 200000) {
 			ns.tprint("Buy TOR router");
-		}
-		else {
+		} else {
 			var ownedPortBusters = getNumberOfOwnedPortBusters(ns);
 			if (ownedPortBusters == 0 && ns.getPlayer().money >= 500000) {
 				await executeInTerminal(ns, "buy BruteSSH.exe");
-			} 
-			else if (ownedPortBusters == 1 && ns.getPlayer().money >= 1500000) {
+			} else if (ownedPortBusters == 1 && ns.getPlayer().money >= 1500000) {
 				await executeInTerminal(ns, "buy FTPCrack.exe");
-			} 
-			else if (ownedPortBusters == 2 && ns.getPlayer().money >= 5000000) {
+			} else if (ownedPortBusters == 2 && ns.getPlayer().money >= 5000000) {
 				await executeInTerminal(ns, "buy relaySMTP.exe");
-			} 
-			else if (ownedPortBusters == 3 && ns.getPlayer().money >= 30000000) {
+			} else if (ownedPortBusters == 3 && ns.getPlayer().money >= 30000000) {
 				await executeInTerminal(ns, "buy HTTPWorm.exe");
-			} 
-			else if (ownedPortBusters == 4 && ns.getPlayer().money >= 250000000) {
+			} else if (ownedPortBusters == 4 && ns.getPlayer().money >= 250000000) {
 				await executeInTerminal(ns, "buy SQLInject.exe");
-			} 
+			}
 		}
 	} else if (gameStateLevel == 5) {
 		//tryBuyPortBusters(ns);
