@@ -21,7 +21,9 @@ import {
 import {
     scripts
 } from "libs/deploy-lib.js";
-import { progressLoop } from "libs/network-lib";
+import {
+    progressLoop
+} from "libs/network-lib";
 
 var hackScriptRam;
 var weakenScriptRam;
@@ -40,9 +42,9 @@ export async function main(ns) {
     initScriptRam(ns);
     while (true) {
         var started = Date.now();
-        await progressLoop(ns);
+        var gameStateLevel = await progressLoop(ns);
         updateServerInfo(ns, hackedServers, purchasedServers, batches);
-        updateBatches(misc, ns, hackedServers, batches);
+        updateBatches(misc, ns, hackedServers, batches, gameStateLevel);
         runBatches(ns, hackedServers, purchasedServers, batches, misc);
         if (!loop) break;
 
@@ -137,11 +139,11 @@ async function updatePurchasedServers(ns, purchasedServers) {
 /** 
  * @param {import(".").NS} ns 
  */
-function updateBatches(misc, ns, hackedServers, batches) {
+function updateBatches(misc, ns, hackedServers, batches, gameStateLevel) {
     //console.log("updateBatches");
     misc.formulasExists = ns.fileExists("Formulas.exe");
     createBatches(ns, hackedServers, batches);
-    priotizeBatches(hackedServers, batches, misc);
+    priotizeBatches(hackedServers, batches, misc, gameStateLevel);
     //console.log(batches);
 }
 
@@ -174,7 +176,7 @@ async function createBatches(ns, hackedServers, batches) {
  * @param {*} batches 
  * @param {string[]} hostnamesByPriority 
  */
-async function priotizeBatches(hackedServers, batches, misc) {
+async function priotizeBatches(hackedServers, batches, misc, gameStateLevel) {
     var moneyHostnameDictionary = [];
     misc.hostnamesByPriority = [];
     moneyHostnameDictionary = [];
@@ -200,15 +202,6 @@ async function priotizeBatches(hackedServers, batches, misc) {
         }
     }
 
-    // Select first server on game start
-    var hostnameMemory = []
-    if (Object.keys(hackedServers).length < 5 && moneyHostnameDictionary.length >= 1) {
-        for (var hostname of misc.hostnamesByPriority) {
-            hostnameMemory.push(hostname);
-        }
-        misc.hostnamesByPriority = [];
-    }
-
     // Priotize by money per second
     moneyHostnameDictionary = moneyHostnameDictionary.sort(sortFirstColumn).reverse();
     for (var moneyHostname of moneyHostnameDictionary) {
@@ -219,10 +212,16 @@ async function priotizeBatches(hackedServers, batches, misc) {
     if (moneyHostnameDictionary[0] != undefined && moneyHostnameDictionary[0][0] != undefined) {
         //console.log("Priotized hacking " + moneyHostnameDictionary[0][1] + " for " + moneyHostnameDictionary[0][0] + " $ per second (returns " + misc.hostnamesByPriority[0] + ")");
     }
-    if (hostnameMemory.length > 0) {
-        for (var hostname of hostnameMemory) {
-            misc.hostnamesByPriority.push(hostname);
+
+    // hack n00dles first in the beginning for quick cash
+    if (Object.keys(hackedServers).length < 10) {
+        var newPriority = ["n00dles"];
+        for (var hostname of misc.hostnamesByPriority) {
+            if (hostname != "n00dles") {
+                newPriority.push(hostname);
+            }
         }
+        misc.hostnamesByPriority = newPriority;
     }
 
     //console.log("priotizeBatches | hostnamesByPriority:");

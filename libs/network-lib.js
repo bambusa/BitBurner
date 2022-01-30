@@ -71,13 +71,8 @@ export async function progressLoop(ns) {
 		//tryBuyPortBusters(ns);
 		await exploreAndRootServers(ns, "home", "home")
 
-		if (progressedGameStateLevel) {
-			if (!ns.scan().includes("darkweb") && ns.getPlayer().hacking >= 50) {
-				ns.alert("!!! Buy TOR router");
-			}
-			if (ns.scan().includes("darkweb") && !ns.fileExists("BruteSSH.exe") && ns.getPlayer().hacking >= 50) {
-				ns.alert("!!! Buy BruteSSH.exe");
-			}
+		if (!ns.scan().includes("darkweb") && ns.getPlayer().money >= 250000) {
+			ns.alert("!!! Buy TOR router");
 		}
 	} else if (gameStateLevel == 2) {
 		//tryBuyPortBusters(ns);
@@ -88,12 +83,6 @@ export async function progressLoop(ns) {
 		await exploreAndRootServers(ns, "home", "home")
 		tryPurchaseNode(ns, 10);
 		tryUpgradeNodes(ns, 10, 64);
-
-		if (progressedGameStateLevel) {
-			if (ns.scan().includes("darkweb") && !ns.fileExists("FTPCrack.exe") && ns.getPlayer().money >= 1500000) {
-				ns.alert("!!! Buy port busters on darkweb");
-			}
-		}
 	} else if (gameStateLevel == 4) {
 		//tryBuyPortBusters(ns);
 		await exploreAndRootServers(ns, "home", "home")
@@ -111,4 +100,6 @@ export async function progressLoop(ns) {
 		await exploreAndRootServers(ns, "home", "home")
 		tryReplaceServer(ns, 65536);
 	}
+
+	return gameStateLevel;
 }
