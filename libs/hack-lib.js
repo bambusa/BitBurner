@@ -5,7 +5,7 @@ import {
 export const portBusters = ['BruteSSH.exe', 'FTPCrack.exe', 'relaySMTP.exe', 'HTTPWorm.exe', 'SQLInject.exe'];
 
 /** @param {import("..").NS} ns **/
-export async function getNumberOfOwnedPortBusters(ns) {
+export function getNumberOfOwnedPortBusters(ns) {
     var ownedBusters = 0;
     for (var i = 0; i < portBusters.length; i++) {
         if (ns.fileExists(portBusters[i], 'home')) {

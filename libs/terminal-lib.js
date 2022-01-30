@@ -7,7 +7,7 @@
  * @param {string} command The command to be executed
  * @returns void
  */
- export default async function execute_terminal(ns, command) {
+ export async function executeInTerminal(ns, command) {
     const terminalInput = document.getElementById("terminal-input");
     // await ns.prompt(terminalInput);
     if (!terminalInput) {

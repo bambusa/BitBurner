@@ -9,6 +9,8 @@ import {
 	tryUpgradeNodes,
 	allNodesUpgraded
 } from "libs/node-lib.js";
+import { getNumberOfOwnedPortBusters } from "libs/hack-lib";
+import { executeInTerminal } from "libs/terminal-lib";
 
 export const gameStateFile = "game-state-level.txt";
 var gameStateLevel;
@@ -37,23 +39,25 @@ export async function getGameStateLevel(ns) {
 			level = 3;
 			await ns.write(gameStateFile, level, "w");
 		}
-	} else if (level < 4) {
-		if (allNodesUpgraded(ns, 10, 10)) {
-			ns.tprintf("!!! Progressed to Game State Level 4: All nodes upgraded, start upgrading purchased servers");
-			level = 4;
-			await ns.write(gameStateFile, level, "w");
-		}
-	} else if (level == 4 && ns.getPlayer().money >= 500000000) {
-		ns.tprintf("!!! Progressed to Game State Level 5: 1b $");
+	} else if (level == 3 && allNodesUpgraded(ns, 10, 10)) {
+		ns.tprintf("!!! Progressed to Game State Level 4: All nodes upgraded, start buying port busters");
+		level = 4;
+		await ns.write(gameStateFile, level, "w");
+	} else if (level == 4 && getNumberOfOwnedPortBusters(ns) == 5) {
+		ns.tprintf("!!! Progressed to Game State Level 5: All port busters bought, start upgrading purchased servers");
 		level = 5;
 		await ns.write(gameStateFile, level, "w");
-	} else if (level == 5 && allServersUpgraded(ns, 4096)) {
-		ns.tprintf("!!! Progressed to Game State Level 6: All servers upgraded, next node upgrades");
+	} else if (level == 5 && ns.getPlayer().money >= 500000000) {
+		ns.tprintf("!!! Progressed to Game State Level 6: 500m $");
 		level = 6;
 		await ns.write(gameStateFile, level, "w");
-	} else if (level == 6 && allNodesUpgraded(ns, 20, 200)) {
-		ns.tprintf("!!! Progressed to Game State Level 7: More server upgrades...");
+	} else if (level == 6 && allServersUpgraded(ns, 4096)) {
+		ns.tprintf("!!! Progressed to Game State Level 7: All servers upgraded, next node upgrades");
 		level = 7;
+		await ns.write(gameStateFile, level, "w");
+	} else if (level == 7 && allNodesUpgraded(ns, 20, 200)) {
+		ns.tprintf("!!! Progressed to Game State Level 8: More server upgrades...");
+		level = 8;
 		await ns.write(gameStateFile, level, "w");
 	}
 
@@ -70,10 +74,6 @@ export async function progressLoop(ns) {
 	if (gameStateLevel == 1) {
 		//tryBuyPortBusters(ns);
 		await exploreAndRootServers(ns, "home", "home")
-
-		if (!ns.scan().includes("darkweb") && ns.getPlayer().money >= 250000) {
-			ns.alert("!!! Buy TOR router");
-		}
 	} else if (gameStateLevel == 2) {
 		//tryBuyPortBusters(ns);
 		await exploreAndRootServers(ns, "home", "home")
@@ -84,19 +84,41 @@ export async function progressLoop(ns) {
 		tryPurchaseNode(ns, 10);
 		tryUpgradeNodes(ns, 10, 64);
 	} else if (gameStateLevel == 4) {
-		//tryBuyPortBusters(ns);
-		await exploreAndRootServers(ns, "home", "home")
-		tryReplaceServer(ns, 512);
+		if (!ns.scan("home").includes("darkweb") && ns.getPlayer().money >= 200000) {
+			ns.tprint("Buy TOR router");
+		}
+		else {
+			var ownedPortBusters = getNumberOfOwnedPortBusters(ns);
+			if (ownedPortBusters == 0 && ns.getPlayer().money >= 500000) {
+				await executeInTerminal(ns, "buy BruteSSH.exe");
+			} 
+			else if (ownedPortBusters == 1 && ns.getPlayer().money >= 1500000) {
+				await executeInTerminal(ns, "buy FTPCrack.exe");
+			} 
+			else if (ownedPortBusters == 2 && ns.getPlayer().money >= 5000000) {
+				await executeInTerminal(ns, "buy relaySMTP.exe");
+			} 
+			else if (ownedPortBusters == 3 && ns.getPlayer().money >= 30000000) {
+				await executeInTerminal(ns, "buy HTTPWorm.exe");
+			} 
+			else if (ownedPortBusters == 4 && ns.getPlayer().money >= 250000000) {
+				await executeInTerminal(ns, "buy SQLInject.exe");
+			} 
+		}
 	} else if (gameStateLevel == 5) {
 		//tryBuyPortBusters(ns);
 		await exploreAndRootServers(ns, "home", "home")
-		tryReplaceServer(ns, 4096);
+		tryReplaceServer(ns, 512);
 	} else if (gameStateLevel == 6) {
+		//tryBuyPortBusters(ns);
+		await exploreAndRootServers(ns, "home", "home")
+		tryReplaceServer(ns, 4096);
+	} else if (gameStateLevel == 7) {
 		//tryBuyPortBusters(ns);
 		await exploreAndRootServers(ns, "home", "home")
 		tryPurchaseNode(ns, 20);
 		tryUpgradeNodes(ns, 200);
-	} else if (gameStateLevel == 7) {
+	} else if (gameStateLevel == 8) {
 		await exploreAndRootServers(ns, "home", "home")
 		tryReplaceServer(ns, 65536);
 	}

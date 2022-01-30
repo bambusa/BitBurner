@@ -24,10 +24,12 @@ import {
 import {
     progressLoop
 } from "libs/network-lib";
+import { BatchLogEntry } from "models/batch-log-entry";
 
 var hackScriptRam;
 var weakenScriptRam;
 var growScriptRam;
+const batchLogFile = "batch-log-file.txt";
 
 /** 
  * @param {import(".").NS} ns 
@@ -39,16 +41,17 @@ export async function main(ns) {
     var misc = {};
     var purchasedServers = {};
 
+    await ns.write(batchLogFile, "[]", "w");
     initScriptRam(ns);
     while (true) {
         var started = Date.now();
         var gameStateLevel = await progressLoop(ns);
         updateServerInfo(ns, hackedServers, purchasedServers, batches);
         updateBatches(misc, ns, hackedServers, batches, gameStateLevel);
-        runBatches(ns, hackedServers, purchasedServers, batches, misc);
+        await runBatches(ns, hackedServers, purchasedServers, batches, misc);
         if (!loop) break;
 
-        var ended = Date.now();
+        //var ended = Date.now();
         //console.log("Batch loop took " + (ended - started) + " ms");
         await ns.sleep(100);
     }
@@ -231,16 +234,16 @@ async function priotizeBatches(hackedServers, batches, misc, gameStateLevel) {
 /** 
  * @param {import(".").NS} ns 
  */
-function runBatches(ns, hackedServers, purchasedServers, batches, misc) {
+async function runBatches(ns, hackedServers, purchasedServers, batches, misc) {
     //console.log("runBatches");
-    assignToFreeServers(purchasedServers, misc.hostnamesByPriority, batches, ns);
-    assignToFreeServers(hackedServers, misc.hostnamesByPriority, batches, ns);
+    await assignToFreeServers(purchasedServers, misc.hostnamesByPriority, batches, ns);
+    await assignToFreeServers(hackedServers, misc.hostnamesByPriority, batches, ns);
 }
 
 /** 
  * @param {import(".").NS} ns 
  */
-function assignToFreeServers(servers, hostnamesByPriority, batches, ns) {
+async function assignToFreeServers(servers, hostnamesByPriority, batches, ns) {
     for (var hostname in servers) {
         //console.log("assignToFreeServers | check server " + hostname);
         /** @type{ServerInfo} */
@@ -255,7 +258,7 @@ function assignToFreeServers(servers, hostnamesByPriority, batches, ns) {
                     if (batch.batchStart == undefined || batch.batchStart.length == 0) {
                         setRuntimes(batch);
                     }
-                    var ranAll = runJobs(ns, batch, serverInfo);
+                    var ranAll = await runJobs(ns, batch, serverInfo);
                     if (ranAll) {
                         delete batches[targetname];
                     }
@@ -273,18 +276,18 @@ function assignToFreeServers(servers, hostnamesByPriority, batches, ns) {
  * @param {JobBatch} batch 
  * @param {ServerInfo} serverInfo
  */
-function runJobs(ns, batch, serverInfo) {
+async function runJobs(ns, batch, serverInfo) {
     //console.log("runJobs " + serverInfo.server.hostname);
-    execJob(ns, batch.weakenAfterHackJob, serverInfo);
+    await execJob(ns, batch.weakenAfterHackJob, serverInfo);
     if (batch.weakenAfterHackJob == undefined || batch.weakenAfterHackJob?.threads == 0) {
         batch.weakenAfterHackJob = undefined;
-        execJob(ns, batch.growJob, serverInfo);
+        await execJob(ns, batch.growJob, serverInfo);
         if (batch.growJob == undefined || batch.growJob?.threads == 0) {
             batch.growJob = undefined;
-            execJob(ns, batch.weakenAfterGrowJob, serverInfo);
+            await execJob(ns, batch.weakenAfterGrowJob, serverInfo);
             if (batch.weakenAfterGrowJob == undefined || batch.weakenAfterGrowJob?.threads == 0) {
                 batch.weakenAfterGrowJob = undefined;
-                execJob(ns, batch.hackJob, serverInfo);
+                await execJob(ns, batch.hackJob, serverInfo);
                 if (batch.hackJob == undefined || batch.hackJob?.threads == 0) {
                     batch.hackJob = undefined;
                     return true;
@@ -301,7 +304,7 @@ function runJobs(ns, batch, serverInfo) {
  * @param {ServerInfo} serverInfo 
  * @returns {boolean}
  */
-function execJob(ns, job, serverInfo) {
+async function execJob(ns, job, serverInfo) {
     if (job != undefined && job.threads > 0 && Date.now() >= job.runtimeStart) {
         //console.log("execJob " + job.scriptname + " @ " + serverInfo.server.hostname + " with " + serverInfo.freeRam + " GB free RAM");
 
@@ -321,11 +324,26 @@ function execJob(ns, job, serverInfo) {
             job.jobStarted = true;
             job.threads -= assignThreads;
             serverInfo.freeRam -= scriptRam * assignThreads;
-            console.log("exec " + job.scriptname + " on " + serverInfo.server.hostname + " with " + assignThreads + " threads and target " + job.target + " with " + (Date.now() - job.runtimeStart) + " ms delay")
+
+            var now = Date.now();
+            var delay = (now - job.runtimeStart)
+            
+            //console.log("exec " + job.scriptname + " on " + serverInfo.server.hostname + " with " + assignThreads + " threads and target " + job.target + " with " + delay + " ms delay")
+            await logBatches(ns, now, serverInfo, job, assignThreads, delay);
+
             return true;
         } else {
             console.log("Failed " + job.scriptname + " on " + serverInfo.server.hostname + " with " + assignThreads + " threads and target " + job.target + " with " + (Date.now() - job.runtimeStart) + " ms delay")
         }
     }
     return false;
+}
+
+async function logBatches(ns, now, serverInfo, job, assignThreads, delay) {
+    var logfileText = await ns.read(batchLogFile);
+    /** @type{BatchLogEntry[]} */
+    var logEntries = JSON.parse(logfileText);
+    var newEntry = new BatchLogEntry(now, ns.tFormat(now), serverInfo.server.hostname, job.scriptname, assignThreads, job.target, delay);
+    logEntries.push(newEntry);
+    await ns.write(batchLogFile, JSON.stringify(logEntries), "w");
 }
