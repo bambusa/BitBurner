@@ -81,12 +81,19 @@ export function tryPurchaseServer(ns, ram) {
         ram = 8;
     }
 
-    if ((ns.getPurchasedServers()).length < ns.getPurchasedServerLimit()) {
+    var purchasedServerLength = ns.getPurchasedServers().length;
+    if (purchasedServerLength < ns.getPurchasedServerLimit()) {
         let moneyAvailable = ns.getServerMoneyAvailable("home");
         let moneyNeeded = ns.getPurchasedServerCost(ram);
         if (moneyAvailable > moneyNeeded) {
             ns.tprintf("- Purchasing new %u GB server", ram);
-            return ns.purchaseServer(purchasedServerPrefix, ram);
+            var purchased = ns.purchaseServer(purchasedServerPrefix, ram);
+            if (purchased) {
+                var serverName = purchasedServerPrefix;
+                if (purchasedServerLength > 1) serverName += ("-" + (purchasedServerLength-1));
+                deployScriptTo(ns, scripts, "home", serverName);
+                return purchased;
+            }
         } else {
             //console.log("-- Could not purchase server; Missing " + ns.nFormat(moneyAvailable - moneyNeeded, '0a') + " $ for sale price of " + ns.nFormat(moneyNeeded, '0a') + " $")
             //ns.tprint("-- Could not purchase server; Missing "+ns.nFormat(moneyAvailable - moneyNeeded, '0a')+" $ for sale price of "+ns.nFormat(moneyNeeded, '0a')+" $");

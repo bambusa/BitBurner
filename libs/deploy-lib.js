@@ -6,7 +6,7 @@ export const scripts = ["weaken.js", "grow.js", "hack.js"];
 export async function main(ns) {
     var hostname = ns.args[0];
     if (hostname != undefined) {
-    await deployScriptTo(ns, scripts, "home", hostname);
+        await deployScriptTo(ns, scripts, "home", hostname);
     }
     else {
         var servers = findHackedServers(ns, "home", "home");

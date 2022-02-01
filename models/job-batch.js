@@ -2,8 +2,7 @@ export class JobBatch {
     /** @param{string} target hostname of target */
     constructor(target) {
         this.target = target;
-        this.batchStart = [];
-        this.jobsRunsUntil = [];
+        this.isFinalBatch = false;
     }
     /** @type{string} */
     target;
@@ -21,4 +20,6 @@ export class JobBatch {
     jobsRunsUntil;
     /** @type{number[]} */
     batchStart;
+    /** @type{boolean} */
+    isFinalBatch;
 };
