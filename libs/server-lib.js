@@ -10,7 +10,7 @@ const purchasedServerPrefix = "pserv";
 
 export async function main(ns) {
     var servers = findHackedServers(ns, "home", "home");
-    for (var server of servers) {
+    for (var server of servers.concat(ns.getPurchasedServers())) {
         await deployScriptTo(ns, scripts, "home", server);
     }
 }

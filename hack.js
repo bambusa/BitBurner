@@ -2,9 +2,8 @@
 export async function main(ns) {
 	var target = ns.args[0];
 
-	logBatchError(ns, target);
-
 	var stole = await hackServer(ns, target);
+	logBatchError(ns, target);
 	if (stole > 0) {
 		console.log(ns.getServer().hostname+": Successful hack of "+target+"; stole "+ns.nFormat(stole, '0.a')+"$");
 	}
@@ -17,10 +16,10 @@ export async function main(ns) {
 function logBatchError(ns, target) {
 	var server = ns.getServer(target);
 	if (server.hackDifficulty > server.minDifficulty) {
-		console.log("Hack " + target + " at security level " + server.hackDifficulty + " instead of min " + server.minDifficulty);
+		console.log("Hacked " + target + " at security level " + server.hackDifficulty + " instead of min " + server.minDifficulty);
 	}
 	if (server.moneyAvailable < server.moneyMax) {
-		console.log("Hack " + target + " at money available " + server.moneyAvailable + " instead of max " + server.moneyMax);
+		console.log("Hacked " + target + " at money available " + server.moneyAvailable + " instead of max " + server.moneyMax);
 	}
 }
 

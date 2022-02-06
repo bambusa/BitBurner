@@ -9,9 +9,9 @@ import {
 	tryUpgradeNodes,
 	allNodesUpgraded
 } from "libs/node-lib.js";
+import { getNumberOfOwnedPortBusters } from "libs/hack-lib";
 
 // Comment import of getNumberOfOwnedPortBusters and executeInTerminal if home RAM is under 64 GB
-//import { getNumberOfOwnedPortBusters } from "libs/hack-lib";
 //import { executeInTerminal } from "libs/terminal-lib";
 
 export const gameStateFile = "game-state-level.txt";
@@ -93,6 +93,7 @@ export async function progressLoop(ns) {
 		if (!ns.scan("home").includes("darkweb") && ns.getPlayer().money >= 200000) {
 			ns.tprint("Buy TOR router");
 		} else {
+			if (typeof executeInTerminal !== 'undefined') {
 			var ownedPortBusters = getNumberOfOwnedPortBusters(ns);
 			if (ownedPortBusters == 0 && ns.getPlayer().money >= 500000) {
 				await executeInTerminal(ns, "buy BruteSSH.exe");
@@ -105,6 +106,7 @@ export async function progressLoop(ns) {
 			} else if (ownedPortBusters == 4 && ns.getPlayer().money >= 250000000) {
 				await executeInTerminal(ns, "buy SQLInject.exe");
 			}
+		}
 		}
 	} else if (gameStateLevel == 5) {
 		//tryBuyPortBusters(ns);

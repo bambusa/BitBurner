@@ -30,7 +30,10 @@ export async function main(ns) {
     const loop = ns.args[0] ?? true;
     const hackedServers = {};
     const purchasedServers = {};
-    const runningJobs = {};
+    const runningJobs = {
+        /** @type{RunningJob[]} */
+        "jobs":[]
+    };
 
     await ns.write(batchLogFile, "[]", "w");
     initScriptRam(ns);
@@ -54,10 +57,6 @@ export async function main(ns) {
 
                 /** @type{ServerInfo} */
                 var targetInfo = hackedServers[targetname];
-                if (runningJobs[targetname] == undefined) {
-                    runningJobs[targetname] = [];
-                }
-
                 var now = Date.now();
                 var hacktime = ns.getHackTime(targetname);
                 var growtime = ns.getGrowTime(targetname);
@@ -75,66 +74,55 @@ export async function main(ns) {
                 predictedStates[scripts[2]] = [targetInfo.server.hackDifficulty, targetInfo.server.moneyAvailable];
 
                 var approxThreads = Math.floor(serverInfo.freeRam / hackScriptRam);
-                console.log("Check host " + hostname + " target " + targetname + " with freeRam " + serverInfo.freeRam + " approximately free threads " + approxThreads);
+                // console.log("Check host " + hostname + " target " + targetname + " with freeRam " + serverInfo.freeRam + " approximately free threads " + approxThreads);
 
-                if (runningJobs[targetname].length > 0) {
-                    var i = 0;
-                    /** @type{RunningJob} */
-                    var runningJob = runningJobs[targetname][i];
-                    while (runningJob != null) {
+                for (var runningJob of runningJobs.jobs.filter(x => x.target == targetname)) {
 
-                        // Remove finished jobs
-                        if (!ns.isRunning(runningJob.type, hostname, targetname, runningJob.start)) {
-                            runningJobs[targetname].splice(i, 1);
-                            runningJob = runningJobs[targetname][i];
-                            continue;
-                        }
+                    // Remove finished jobs
+                    if (!ns.isRunning(runningJob.type, runningJob.hostname, runningJob.target, runningJob.start)) {
+                        console.log("did not find job "+runningJob.type+" on "+runningJob.hostname+" args "+runningJob.target+", "+runningJob.start);
+                        var index = runningJobs.jobs.indexOf(runningJob);
+                        runningJobs.jobs.splice(index, 1);
+                        continue;
+                    }
 
-                        // Predict state end of hack job
-                        if (runningJob.end < hackEnd) {
-                            beforeHackJobCount++;
-                            predictedStates[scripts[2]][0] = predictSecurityForJob(runningJob, predictedStates[scripts[2]][0], targetInfo);
-                            predictedStates[scripts[2]][1] = predictMoneyForJob(predictedStates[scripts[2]][1], runningJob, targetInfo);
-                        }
+                    // Predict state end of hack job
+                    if (runningJob.end < hackEnd) {
+                        beforeHackJobCount++;
+                        predictedStates[scripts[2]][0] = predictSecurityForJob(runningJob, predictedStates[scripts[2]][0], targetInfo);
+                        predictedStates[scripts[2]][1] = predictMoneyForJob(predictedStates[scripts[2]][1], runningJob, targetInfo);
+                    }
 
-                        // Predict state end of grow job
-                        if (runningJob.end < growEnd) {
-                            beforeGrowJobCount++;
-                            predictedStates[scripts[1]][0] = predictSecurityForJob(runningJob, predictedStates[scripts[1]][0], targetInfo);
-                            predictedStates[scripts[1]][1] = predictMoneyForJob(predictedStates[scripts[1]][1], runningJob, targetInfo);
-                        }
+                    // Predict state end of grow job
+                    if (runningJob.end < growEnd) {
+                        beforeGrowJobCount++;
+                        predictedStates[scripts[1]][0] = predictSecurityForJob(runningJob, predictedStates[scripts[1]][0], targetInfo);
+                        predictedStates[scripts[1]][1] = predictMoneyForJob(predictedStates[scripts[1]][1], runningJob, targetInfo);
+                    }
 
-                        console.log("runningJob.end: "+runningJob.end);
-                        console.log("weakenEnd: "+weakenEnd);
-                        // Predict state end of weaken job
-                        if (runningJob.end < weakenEnd) {
-                            beforeWeakenJobCount++;
-                            predictedStates[scripts[0]][0] = predictSecurityForJob(runningJob, predictedStates[scripts[0]][0], targetInfo);
-                            predictedStates[scripts[0]][1] = predictMoneyForJob(predictedStates[scripts[0]][1], runningJob, targetInfo);
-                        }
-
-                        i++;
-                        runningJob = runningJobs[targetname][i];
+                    // Predict state end of weaken job
+                    if (runningJob.end < weakenEnd) {
+                        beforeWeakenJobCount++;
+                        predictedStates[scripts[0]][0] = predictSecurityForJob(runningJob, predictedStates[scripts[0]][0], targetInfo);
+                        predictedStates[scripts[0]][1] = predictMoneyForJob(predictedStates[scripts[0]][1], runningJob, targetInfo);
                     }
                 }
 
-                console.log("predict after hacktime: security " + predictedStates[scripts[2]][0] + "/" + targetInfo.server.minDifficulty + "; money " + predictedStates[scripts[2]][1] + "/" + targetInfo.server.moneyMax+"; "+beforeHackJobCount+" jobs before");
-                console.log("predict after weakentime: security " + predictedStates[scripts[0]][0] + "/" + targetInfo.server.minDifficulty + "; money " + predictedStates[scripts[0]][1] + "/" + targetInfo.server.moneyMax+"; "+beforeWeakenJobCount+" jobs before");
-                console.log("predict after growtime: security " + predictedStates[scripts[1]][0] + "/" + targetInfo.server.minDifficulty + "; money " + predictedStates[scripts[1]][1] + "/" + targetInfo.server.moneyMax+"; "+beforeGrowJobCount+" jobs before");
+
+                console.log("predict "+predictedStates+" after hacktime: security " + predictedStates[scripts[2]][0] + "/" + targetInfo.server.minDifficulty + "; money " + predictedStates[scripts[2]][1] + "/" + targetInfo.server.moneyMax + "; " + beforeHackJobCount + " jobs before");
+                console.log("predict "+predictedStates+" after weakentime: security " + predictedStates[scripts[0]][0] + "/" + targetInfo.server.minDifficulty + "; money " + predictedStates[scripts[0]][1] + "/" + targetInfo.server.moneyMax + "; " + beforeWeakenJobCount + " jobs before");
+                console.log("predict "+predictedStates+" after growtime: security " + predictedStates[scripts[1]][0] + "/" + targetInfo.server.minDifficulty + "; money " + predictedStates[scripts[1]][1] + "/" + targetInfo.server.moneyMax + "; " + beforeGrowJobCount + " jobs before");
 
                 if (predictedStates[scripts[2]][0] == targetInfo.server.minDifficulty && predictedStates[scripts[2]][1] == targetInfo.server.moneyMax) {
                     var newRunningJob = runHack(serverInfo, targetInfo, predictedStates[scripts[2]][1], ns, now, hackEnd, runningJobs);
-                    console.log("runningJobs[targetname] now has length: " + runningJobs[targetname].length);
                     if (newRunningJob != null) continue;
                 }
                 if (predictedStates[scripts[0]][0] != targetInfo.server.minDifficulty) {
                     var newRunningJob = runWeaken(serverInfo, targetInfo, predictedStates[scripts[0]][0], ns, now, hackEnd, runningJobs);
-                    console.log("runningJobs[targetname] now has length: " + runningJobs[targetname].length);
                     if (newRunningJob != null) continue;
                 }
                 if (predictedStates[scripts[1]][0] == targetInfo.server.minDifficulty && predictedStates[scripts[1]][1] != targetInfo.server.moneyMax) {
                     var newRunningJob = runGrow(serverInfo, targetInfo, predictedStates[scripts[1]][1], ns, now, hackEnd, runningJobs);
-                    console.log("runningJobs[targetname] now has length: " + runningJobs[targetname].length);
                     if (newRunningJob != null) continue;
                 }
             }
@@ -145,6 +133,7 @@ export async function main(ns) {
         console.log("Loop took " + (ended - started) + " ms");
         if (!loop) break;
         await ns.sleep(10000);
+
     }
 }
 
@@ -195,17 +184,19 @@ function prioitizeServers(hackedServers) {
 function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobs) {
     var threads = Math.floor(serverInfo.freeRam / hackScriptRam);
     if (targetInfo.hackAmount * threads > predictedMoney) {
-        threads = Math.floor(predictedMoney / targetInfo.hackAmount);
+        threads = Math.ceil(predictedMoney / targetInfo.hackAmount);
+    }
+    if (threads < 1 || threads > Math.floor(serverInfo.freeRam / hackScriptRam)) {
+        console.log("hack threads < 1: (predictedMoney " + predictedMoney + " / targetInfo.hackAmount " + targetInfo.hackAmount + " = " + threads);
+        return null;
     }
     var pid = ns.exec(scripts[2], serverInfo.server.hostname, threads, targetInfo.server.hostname, now);
     if (pid > 0) {
         var expectedOutcome = predictedMoney - (targetInfo.hackAmount * threads);
         var newRunningJob = new RunningJob(pid, scripts[2], serverInfo.server.hostname, targetInfo.server.hostname, threads, now, hackEnd, expectedOutcome);
-        var array = runningJobs[targetInfo.server.hostname];
-        array.push(newRunningJob);
-        runningJobs[targetInfo.server.hostname] = array;
+        runningJobs.jobs.push(newRunningJob);
         serverInfo.freeRam -= hackScriptRam * threads;
-        console.log("Exec " + + scripts[2] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname + "; expectedOutcome " + expectedOutcome);
+        console.log("Exec " +pid+" " +scripts[2] + " on " + serverInfo.server.hostname + " with " + threads + " threads and args " + targetInfo.server.hostname + ", "+now+ "; expectedOutcome " + expectedOutcome);
         return newRunningJob;
     } else {
         console.log("Failed " + scripts[2] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname);
@@ -221,7 +212,7 @@ function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runni
  * @param {import("index").NS} ns 
  * @param {number} now 
  * @param {number} hackEnd 
- * @param {number} runningJobs 
+ * @param {number} jobs 
  * @returns 
  */
 function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, runningJobs) {
@@ -229,19 +220,19 @@ function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, 
     if (targetInfo.weakenAmount * threads > predictedSecurity - serverInfo.server.minDifficulty) {
         threads = Math.ceil((predictedSecurity - serverInfo.server.minDifficulty) / targetInfo.weakenAmount);
     }
+    if (threads < 1 || threads > Math.floor(serverInfo.freeRam / weakenScriptRam)) {
+        console.log("weaken threads < 1: (predictedSecurity " + predictedSecurity + " - serverInfo.server.minDifficulty " + serverInfo.server.minDifficulty + ") / targetInfo.weakenAmount " + targetInfo.weakenAmount + " = " + threads);
+        return null;
+    }
+
     var pid = ns.exec(scripts[0], serverInfo.server.hostname, threads, targetInfo.server.hostname, now);
     if (pid > 0) {
         var expectedOutcome = predictedSecurity - (targetInfo.weakenAmount * threads);
+        console.log("expectedOutcome "+expectedOutcome+" = predictedSecurity "+predictedSecurity+" - (targetInfo.weakenAmount "+targetInfo.weakenAmount +" * threads "+threads+")");
         var newRunningJob = new RunningJob(pid, scripts[0], serverInfo.server.hostname, targetInfo.server.hostname, threads, now, hackEnd, expectedOutcome);
-        console.log("newRunningJob:");
-        console.log(newRunningJob);
-        console.log("push to runningJobs "+runningJobs[targetInfo.server.hostname]?.length);
-        var array = runningJobs[targetInfo.server.hostname];
-        array.push(newRunningJob);
-        runningJobs[targetInfo.server.hostname] = array;
-        console.log("pushed to runningJobs "+runningJobs[targetInfo.server.hostname]?.length);
+        runningJobs.jobs.push(newRunningJob);
         serverInfo.freeRam -= weakenScriptRam * threads;
-        console.log("Exec " + scripts[0] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname + "; expectedOutcome " + expectedOutcome);
+        console.log("Exec " + scripts[0] + " on " + serverInfo.server.hostname + " with " + threads + " threads and args " + targetInfo.server.hostname + ", "+now+ "; expectedOutcome " + expectedOutcome);
         return newRunningJob;
     } else {
         console.log("Failed " + scripts[0] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname);
@@ -257,7 +248,7 @@ function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, 
  * @param {import("index").NS} ns 
  * @param {number} now 
  * @param {number} hackEnd 
- * @param {number} runningJobs 
+ * @param {*} runningJobs 
  * @returns 
  */
 function runGrow(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobs) {
@@ -266,15 +257,17 @@ function runGrow(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runni
     if ((targetInfo.growThreadsToDouble * threads / 2) > growNeeded) {
         threads = Math.ceil(growNeeded / targetInfo.growThreadsToDouble / 2);
     }
+    if (threads < 1 || threads > Math.floor(serverInfo.freeRam / growScriptRam)) {
+        console.log("grow threads < 1: (growNeeded " + growNeeded + " / targetInfo.growThreadsToDouble " + targetInfo.growThreadsToDouble + " / 2 = " + threads);
+        return null;
+    }
     var pid = ns.exec(scripts[1], serverInfo.server.hostname, threads, targetInfo.server.hostname, now);
     if (pid > 0) {
         var expectedOutcome = (targetInfo.growThreadsToDouble * threads / 2) * predictedMoney;
         var newRunningJob = new RunningJob(pid, scripts[1], serverInfo.server.hostname, targetInfo.server.hostname, threads, now, hackEnd, expectedOutcome);
-        var array = runningJobs[targetInfo.server.hostname];
-        array.push(newRunningJob);
-        runningJobs[targetInfo.server.hostname] = array;
+        runningJobs.jobs.push(newRunningJob);
         serverInfo.freeRam -= growScriptRam * threads;
-        console.log("Exec " + scripts[1] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname + "; expectedOutcome " + expectedOutcome);
+        console.log("Exec " + scripts[1] + " on " + serverInfo.server.hostname + " with " + threads + " threads and args " + targetInfo.server.hostname + ", "+now+ "; expectedOutcome " + expectedOutcome);
         return newRunningJob;
     } else {
         console.log("Failed " + scripts[1] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname);
@@ -315,11 +308,21 @@ function predictSecurityForJob(runningJob, predictedSecurity, targetInfo) {
         if (security < targetInfo.server.minDifficulty) {
             security = targetInfo.server.minDifficulty;
         }
+        if (isNaN(security) || security == undefined) {
+            console.log("security isNan || security == undefined: predictedSecurity"+predictedSecurity+" targetInfo.weakenAmount "+targetInfo.weakenAmount+" runningJob.threads "+runningJob.threads+" targetInfo.server.minDifficulty "+targetInfo.server.minDifficulty);
+        }
     } else if (runningJob.type == scripts[1]) {
         security += targetInfo.growSecurityRise * runningJob.threads;
+        if (isNaN(security) || security == undefined) {
+            console.log("security isNan || security == undefined: predictedSecurity"+predictedSecurity+" targetInfo.growSecurityRise "+targetInfo.growSecurityRise+" runningJob.threads "+runningJob.threads+" targetInfo.server.minDifficulty "+targetInfo.server.minDifficulty);
+        }
     } else if (runningJob.type == scripts[2]) {
         security += targetInfo.hackSecurityRise * runningJob.threads;
+        if (isNaN(security) || security == undefined) {
+            console.log("security isNan || security == undefined: predictedSecurity"+predictedSecurity+" targetInfo.hackSecurityRise "+targetInfo.hackSecurityRise+" runningJob.threads "+runningJob.threads+" targetInfo.server.minDifficulty "+targetInfo.server.minDifficulty);
+        }
     }
+    return security;
 }
 
 /** 
