@@ -3,6 +3,7 @@ export class ServerInfo {
     constructor(server, serverType) {
         this.server = server;
         this.serverType = serverType;
+        this.created = Date.now();
     }
 
     /** @type{import("..").Server} */
@@ -13,8 +14,8 @@ export class ServerInfo {
     serverAtMinSecurity;
     /** @type{boolean} */
     serverAtMaxMoney;
-    /** @type{boolean} */
-    isHacked;
+    // /** @type{boolean} */
+    //isHacked;
     /** @type{number} */
     hackAmount;
     /** @type{number} */
@@ -22,19 +23,21 @@ export class ServerInfo {
     /** @type{number} */
     hackSecurityRise;
     /** @type{number} */
-    growThreadsToMax;
+    hackPotential;
+    // /** @type{number} */
+    //growThreadsToMax;
     /** @type{number} */
     growThreadsToDouble;
-    /** @type{number} */
-    growTime;
+    // /** @type{number} */
+    //growTime;
     /** @type{number} */
     growSecurityRise;
     /** @type{number} */
     weakenAmount;
-    /** @type{number} */
-    weakenTime;
-    /** @type{number} */
-    updateHackedServersAt;
+    // /** @type{number} */
+    //weakenTime;
+    // /** @type{number} */
+    //updateHackedServersAt;
     /** @type{number} */
     predictedSecurity;
     /** @type{number} */
@@ -44,5 +47,5 @@ export class ServerInfo {
     /** @type{number} */
     freeRam;
     /** @type{number} */
-    createdAtHackExp;
+    created;
 }
