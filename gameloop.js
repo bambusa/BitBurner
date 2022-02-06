@@ -123,17 +123,17 @@ export async function main(ns) {
                 console.log("predict after growtime: security " + predictedStates[scripts[1]][0] + "/" + targetInfo.server.minDifficulty + "; money " + predictedStates[scripts[1]][1] + "/" + targetInfo.server.moneyMax+"; "+beforeGrowJobCount+" jobs before");
 
                 if (predictedStates[scripts[2]][0] == targetInfo.server.minDifficulty && predictedStates[scripts[2]][1] == targetInfo.server.moneyMax) {
-                    var newRunningJob = runHack(serverInfo, targetInfo, predictedStates[scripts[2]][1], ns, now, hackEnd, runningJobs[targetname]);
+                    var newRunningJob = runHack(serverInfo, targetInfo, predictedStates[scripts[2]][1], ns, now, hackEnd, runningJobs);
                     console.log("runningJobs[targetname] now has length: " + runningJobs[targetname].length);
                     if (newRunningJob != null) continue;
                 }
                 if (predictedStates[scripts[0]][0] != targetInfo.server.minDifficulty) {
-                    var newRunningJob = runWeaken(serverInfo, targetInfo, predictedStates[scripts[0]][0], ns, now, hackEnd, runningJobs[targetname]);
+                    var newRunningJob = runWeaken(serverInfo, targetInfo, predictedStates[scripts[0]][0], ns, now, hackEnd, runningJobs);
                     console.log("runningJobs[targetname] now has length: " + runningJobs[targetname].length);
                     if (newRunningJob != null) continue;
                 }
                 if (predictedStates[scripts[1]][0] == targetInfo.server.minDifficulty && predictedStates[scripts[1]][1] != targetInfo.server.moneyMax) {
-                    var newRunningJob = runGrow(serverInfo, targetInfo, predictedStates[scripts[1]][1], ns, now, hackEnd, runningJobs[targetname]);
+                    var newRunningJob = runGrow(serverInfo, targetInfo, predictedStates[scripts[1]][1], ns, now, hackEnd, runningJobs);
                     console.log("runningJobs[targetname] now has length: " + runningJobs[targetname].length);
                     if (newRunningJob != null) continue;
                 }
@@ -192,7 +192,7 @@ function prioitizeServers(hackedServers) {
  * @param {*} runningJobs 
  * @returns 
  */
-function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobsForTarget) {
+function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobs) {
     var threads = Math.floor(serverInfo.freeRam / hackScriptRam);
     if (targetInfo.hackAmount * threads > predictedMoney) {
         threads = Math.floor(predictedMoney / targetInfo.hackAmount);
@@ -201,7 +201,9 @@ function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runni
     if (pid > 0) {
         var expectedOutcome = predictedMoney - (targetInfo.hackAmount * threads);
         var newRunningJob = new RunningJob(pid, scripts[2], serverInfo.server.hostname, targetInfo.server.hostname, threads, now, hackEnd, expectedOutcome);
-        runningJobsForTarget.push(newRunningJob);
+        var array = runningJobs[targetInfo.server.hostname];
+        array.push(newRunningJob);
+        runningJobs[targetInfo.server.hostname] = array;
         serverInfo.freeRam -= hackScriptRam * threads;
         console.log("Exec " + + scripts[2] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname + "; expectedOutcome " + expectedOutcome);
         return newRunningJob;
@@ -222,7 +224,7 @@ function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runni
  * @param {number} runningJobs 
  * @returns 
  */
-function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, runningJobsForTarget) {
+function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, runningJobs) {
     var threads = Math.floor(serverInfo.freeRam / weakenScriptRam);
     if (targetInfo.weakenAmount * threads > predictedSecurity - serverInfo.server.minDifficulty) {
         threads = Math.ceil((predictedSecurity - serverInfo.server.minDifficulty) / targetInfo.weakenAmount);
@@ -233,9 +235,11 @@ function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, 
         var newRunningJob = new RunningJob(pid, scripts[0], serverInfo.server.hostname, targetInfo.server.hostname, threads, now, hackEnd, expectedOutcome);
         console.log("newRunningJob:");
         console.log(newRunningJob);
-        console.log("push to runningJobs "+runningJobsForTarget.length);
-        runningJobsForTarget.push(newRunningJob);
-        console.log("pushed to runningJobs "+runningJobsForTarget.length);
+        console.log("push to runningJobs "+runningJobs[targetInfo.server.hostname]?.length);
+        var array = runningJobs[targetInfo.server.hostname];
+        array.push(newRunningJob);
+        runningJobs[targetInfo.server.hostname] = array;
+        console.log("pushed to runningJobs "+runningJobs[targetInfo.server.hostname]?.length);
         serverInfo.freeRam -= weakenScriptRam * threads;
         console.log("Exec " + scripts[0] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname + "; expectedOutcome " + expectedOutcome);
         return newRunningJob;
@@ -256,7 +260,7 @@ function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, 
  * @param {number} runningJobs 
  * @returns 
  */
-function runGrow(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobsForTarget) {
+function runGrow(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobs) {
     var threads = Math.floor(serverInfo.freeRam / growScriptRam);
     var growNeeded = targetInfo.server.moneyMax / predictedMoney;
     if ((targetInfo.growThreadsToDouble * threads / 2) > growNeeded) {
@@ -266,7 +270,9 @@ function runGrow(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runni
     if (pid > 0) {
         var expectedOutcome = (targetInfo.growThreadsToDouble * threads / 2) * predictedMoney;
         var newRunningJob = new RunningJob(pid, scripts[1], serverInfo.server.hostname, targetInfo.server.hostname, threads, now, hackEnd, expectedOutcome);
-        runningJobsForTarget.push(newRunningJob);
+        var array = runningJobs[targetInfo.server.hostname];
+        array.push(newRunningJob);
+        runningJobs[targetInfo.server.hostname] = array;
         serverInfo.freeRam -= growScriptRam * threads;
         console.log("Exec " + scripts[1] + " on " + serverInfo.server.hostname + " with " + threads + " threads and target " + targetInfo.server.hostname + "; expectedOutcome " + expectedOutcome);
         return newRunningJob;
