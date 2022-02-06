@@ -75,7 +75,7 @@ export function findHackedServers(ns, home, origin, hackedServers) {
 /** @param {import("..").NS} ns
  * @param {number} ram
  * @returns {string} hostname of bought server **/
-export function tryPurchaseServer(ns, ram) {
+export async function tryPurchaseServer(ns, ram) {
     //ns.tprintf("Trying to purchase new servers...");
     if (ram == undefined) {
         ram = 8;
@@ -91,7 +91,7 @@ export function tryPurchaseServer(ns, ram) {
             if (purchased) {
                 var serverName = purchasedServerPrefix;
                 if (purchasedServerLength > 1) serverName += ("-" + (purchasedServerLength-1));
-                deployScriptTo(ns, scripts, "home", serverName);
+                await deployScriptTo(ns, scripts, "home", serverName);
                 return purchased;
             }
         } else {

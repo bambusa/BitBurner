@@ -26,3 +26,7 @@ export class RunningJob {
     /** @type{number} */
     expectedOutcome
 }
+
+RunningJob.prototype.toString = function () {
+    return ""+this.pid+" "+this.type+" "+this.hostname+" "+this.target+" "+this.threads+" "+this.start+" "+this.end+" "+this.expectedOutcome;
+}
