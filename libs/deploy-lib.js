@@ -9,10 +9,7 @@ export async function main(ns) {
         await deployScriptTo(ns, scripts, "home", hostname);
     }
     else {
-        var servers = findHackedServers(ns, "home", "home");
-        for (var server of servers) {
-            await deployScriptTo(ns, scripts, "home", server);
-        }
+        console.log("define target to copy to");
     }
 }
 
@@ -55,6 +52,7 @@ export async function deployScriptTo(ns, copyScripts, hostname, targetname, para
 
         for (var scriptname of copyScripts) {
             await ns.scp(scriptname, hostname, targetname);
+            await ns.sleep(100);
             console.log("Copied " + scriptname + " to " + targetname);
             if (runScript == true) {
                 let threads = await calculateMaxThreads(ns, hostname, scriptname);

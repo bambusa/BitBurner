@@ -34,15 +34,18 @@ export async function main(ns) {
         /** @type{RunningJob[]} */
         "jobs":[]
     };
+    const misc = {};
 
     await ns.write(batchLogFile, "[]", "w");
     initScriptRam(ns);
     while (true) {
         console.log("/// *** Starting loop of gameloop.js *** \\\\\\");
         const started = Date.now();
+        var player = ns.getPlayer();
         var gameStateLevel = await progressLoop(ns);
-        updateServerInfo(ns, hackedServers, purchasedServers);
-        var priotizedServers = prioitizeServers(hackedServers);
+        console.log("Game State Level: "+gameStateLevel);
+        updateServerInfo(ns, hackedServers, purchasedServers, misc, player);
+        var priotizedServers = prioitizeServers(hackedServers, misc, gameStateLevel);
 
         // runJobs
         for (var hostname of Object.keys(purchasedServers).concat(Object.keys(hackedServers))) {
@@ -80,7 +83,7 @@ export async function main(ns) {
 
                     // Remove finished jobs
                     if (!ns.isRunning(runningJob.type, runningJob.hostname, runningJob.target, runningJob.start)) {
-                        console.log("did not find job "+runningJob.type+" on "+runningJob.hostname+" args "+runningJob.target+", "+runningJob.start);
+                        // console.log("did not find job "+runningJob.type+" on "+runningJob.hostname+" args "+runningJob.target+", "+runningJob.start);
                         var index = runningJobs.jobs.indexOf(runningJob);
                         runningJobs.jobs.splice(index, 1);
                         continue;
@@ -133,12 +136,12 @@ export async function main(ns) {
         var ended = Date.now();
         console.log("Loop took " + (ended - started) + " ms");
         if (!loop) break;
-        await ns.sleep(10000);
+        await ns.sleep(1000);
 
     }
 }
 
-function prioitizeServers(hackedServers) {
+function prioitizeServers(hackedServers, misc, gameStateLevel) {
     var servers = [];
     for (var hostname in hackedServers) {
         /** @type{ServerInfo} */
@@ -149,10 +152,19 @@ function prioitizeServers(hackedServers) {
 
     var priotizedServers = [];
     for (var server of servers) {
-        priotizedServers.push(server[1]);
+        if (server[0] > 1000) {
+            // console.log("server[0] / misc[ram] = "+(server[0] / misc["ram"]));
+            if (hackedServers[server[1]].server.minDifficulty > (gameStateLevel > 3 ? gameStateLevel : 3)) {
+                // console.log("too early for "+server[1]);
+            } else {
+                priotizedServers.push(server[1]);
+            }
+        }
     }
 
     console.log("Priotized target "+priotizedServers[0]);
+    // console.log("misc[ram] = "+misc["ram"]);
+    // console.log(servers);
     return priotizedServers;
 }
 
@@ -169,11 +181,16 @@ function prioitizeServers(hackedServers) {
  */
 function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobs) {
     var threads = Math.floor(serverInfo.freeRam / hackScriptRam);
+    if (threads < 1) {
+        console.log("hack threads < 1: serverInfo.freeRam "+serverInfo.freeRam+" / hackScriptRam "+hackScriptRam+")");
+    }
     if (targetInfo.hackAmount * threads > predictedMoney) {
         threads = Math.ceil(predictedMoney / targetInfo.hackAmount);
+        if (threads < 1) {
+            console.log("hack threads < 1: (predictedMoney " + predictedMoney + " / targetInfo.hackAmount " + targetInfo.hackAmount + " = " + threads);
+        }
     }
-    if (threads < 1 || threads > Math.floor(serverInfo.freeRam / hackScriptRam)) {
-        console.log("hack threads < 1: (predictedMoney " + predictedMoney + " / targetInfo.hackAmount " + targetInfo.hackAmount + " = " + threads);
+    if (threads < 1) {
         threads = 1;
     }
     var pid = ns.exec(scripts[2], serverInfo.server.hostname, threads, targetInfo.server.hostname, now);
@@ -203,11 +220,16 @@ function runHack(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runni
  */
 function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, runningJobs) {
     var threads = Math.floor(serverInfo.freeRam / weakenScriptRam);
-    if (targetInfo.weakenAmount * threads > predictedSecurity - targetInfo.server.minDifficulty) {
-        threads = Math.ceil((predictedSecurity - serverInfo.server.minDifficulty) / targetInfo.weakenAmount);
+    if (threads < 1) {
+        console.log("weaken threads < 1: serverInfo.freeRam "+serverInfo.freeRam+" / weakenScriptRam "+weakenScriptRam);
     }
-    if (threads < 1 || threads > Math.floor(serverInfo.freeRam / weakenScriptRam)) {
-        console.log("weaken threads < 1: (predictedSecurity " + predictedSecurity + " - targetInfo.server.minDifficulty " + targetInfo.server.minDifficulty + ") / targetInfo.weakenAmount " + targetInfo.weakenAmount + " = " + threads);
+    if (targetInfo.weakenAmount * threads > predictedSecurity - targetInfo.server.minDifficulty) {
+        threads = Math.ceil((predictedSecurity - targetInfo.server.minDifficulty) / targetInfo.weakenAmount);
+        if (threads < 1) {
+            console.log("weaken threads < 1: (predictedSecurity " + predictedSecurity + " - targetInfo.server.minDifficulty " + targetInfo.server.minDifficulty + ") / targetInfo.weakenAmount " + targetInfo.weakenAmount + " = " + threads);
+        }
+    }
+    if (threads < 1) {
         threads = 1;
     }
 
@@ -239,12 +261,17 @@ function runWeaken(serverInfo, targetInfo, predictedSecurity, ns, now, hackEnd, 
  */
 function runGrow(serverInfo, targetInfo, predictedMoney, ns, now, hackEnd, runningJobs) {
     var threads = Math.floor(serverInfo.freeRam / growScriptRam);
+    if (threads < 1) {
+        console.log("grow threads < 1: serverInfo.freeRam "+serverInfo.freeRam+" / growScriptRam "+growScriptRam);
+    }
     var growNeeded = targetInfo.server.moneyMax / predictedMoney;
     if ((targetInfo.growThreadsToDouble * threads / 2) > growNeeded) {
         threads = Math.ceil(growNeeded / targetInfo.growThreadsToDouble / 2);
+        if (threads < 1) {
+            console.log("grow threads < 1: (growNeeded " + growNeeded + " / targetInfo.growThreadsToDouble " + targetInfo.growThreadsToDouble + " / 2 = " + threads);
+        }
     }
-    if (threads < 1 || threads > Math.floor(serverInfo.freeRam / growScriptRam)) {
-        console.log("grow threads < 1: (growNeeded " + growNeeded + " / targetInfo.growThreadsToDouble " + targetInfo.growThreadsToDouble + " / 2 = " + threads);
+    if (threads < 1) {
         threads = 1;
     }
     var pid = ns.exec(scripts[1], serverInfo.server.hostname, threads, targetInfo.server.hostname, now);
@@ -331,11 +358,11 @@ function initScriptRam(ns) {
 /** 
  * @param {import(".").NS} ns 
  */
-function updateServerInfo(ns, hackedServers, purchasedServers) {
+function updateServerInfo(ns, hackedServers, purchasedServers, misc, player) {
     //console.log("updateServerInfo");
-    var player = ns.getPlayer();
-    updateHackedServers(ns, hackedServers, player);
-    updatePurchasedServers(ns, purchasedServers);
+    misc["ram"] = 0;
+    updateHackedServers(ns, hackedServers, player, misc);
+    updatePurchasedServers(ns, purchasedServers, misc);
     //console.log(hackedServers);
 }
 
@@ -343,7 +370,7 @@ function updateServerInfo(ns, hackedServers, purchasedServers) {
  * @param {import("index").NS} ns
  * @param {import("index").Player} player
  */
-function updateHackedServers(ns, hackedServers, player) {
+function updateHackedServers(ns, hackedServers, player, misc) {
     var servers = findHackedServers(ns, "home", "home");
     for (var serverName of servers) {
         var server = ns.getServer(serverName);
@@ -360,13 +387,14 @@ function updateHackedServers(ns, hackedServers, player) {
         serverInfo.hackAmount = ns.hackAnalyze(server.hostname) * serverInfo.server.moneyMax;
         serverInfo.hackPotential = serverInfo.hackAmount / serverInfo.server.minDifficulty;
         hackedServers[serverName] = serverInfo;
+        misc["ram"] += server.maxRam;
     }
 }
 
 /** 
  * @param {import("index").NS} ns
  */
-function updatePurchasedServers(ns, purchasedServers) {
+function updatePurchasedServers(ns, purchasedServers, misc) {
     var servers = ns.getPurchasedServers();
     servers.push("home");
     for (var serverName of servers) {
@@ -374,5 +402,6 @@ function updatePurchasedServers(ns, purchasedServers) {
         var serverInfo = purchasedServers[serverName] ?? new ServerInfo(server, "purchased");
         serverInfo.freeRam = server.maxRam - server.ramUsed;
         purchasedServers[serverName] = serverInfo;
+        misc["ram"] += server.maxRam;
     }
 }
