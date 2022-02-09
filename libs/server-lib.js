@@ -89,9 +89,7 @@ export async function tryPurchaseServer(ns, ram) {
             ns.tprintf("- Purchasing new %u GB server", ram);
             var purchased = ns.purchaseServer(purchasedServerPrefix, ram);
             if (purchased) {
-                var serverName = purchasedServerPrefix;
-                if (purchasedServerLength > 1) serverName += ("-" + (purchasedServerLength-1));
-                await deployScriptTo(ns, scripts, "home", serverName);
+                await deployScriptTo(ns, scripts, "home", purchased);
                 return purchased;
             }
         } else {
@@ -107,7 +105,7 @@ export async function tryPurchaseServer(ns, ram) {
 /** @param {import("..").NS} ns
  * @param {number} ram
  * @returns {string} hostname of upgraded server **/
-export function tryReplaceServer(ns, ram) {
+export async function tryReplaceServer(ns, ram) {
     for (var i = 0; i < ns.getPurchasedServers().length; i++) {
         var hostname = ns.getPurchasedServers()[i];
         if (ns.getServerMaxRam(hostname) < ram) {
@@ -117,7 +115,8 @@ export function tryReplaceServer(ns, ram) {
                 ns.tprintf("Replacing purchased server %s", hostname);
                 ns.killall(hostname);
                 ns.deleteServer(hostname);
-                return tryPurchaseServer(ns, ram);
+                var purchased = await tryPurchaseServer(ns, ram);
+                return  purchased;
             } else {
                 console.log("- Money available %s; needed for %s GB RAM: %s", ns.nFormat(moneyAvailable, '0.a'), ram, ns.nFormat(moneyNeeded, '0.a'));
                 return;

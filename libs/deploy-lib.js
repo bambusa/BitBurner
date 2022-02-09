@@ -52,7 +52,7 @@ export async function deployScriptTo(ns, copyScripts, hostname, targetname, para
 
         for (var scriptname of copyScripts) {
             await ns.scp(scriptname, hostname, targetname);
-            await ns.sleep(100);
+            // await ns.sleep(100);
             console.log("Copied " + scriptname + " to " + targetname);
             if (runScript == true) {
                 let threads = await calculateMaxThreads(ns, hostname, scriptname);
